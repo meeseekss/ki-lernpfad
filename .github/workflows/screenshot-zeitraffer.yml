@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   screenshots:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # fest, damit sich Schriften im Zeitraffer nicht plötzlich ändern
     defaults:
       run:
         working-directory: 02-screenshot-zeitraffer
@@ -43,10 +43,10 @@ jobs:
           echo "Ereignis=$EREIGNIS Cron='$CRON' Berlin-Offset=$offset → laufen=$laufen"
           echo "laufen=$laufen" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.zeit.outputs.laufen == 'true'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.zeit.outputs.laufen == 'true'
         with:
           node-version: 22
