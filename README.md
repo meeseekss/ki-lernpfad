@@ -5,7 +5,9 @@ Mein persönlicher Lernpfad rund um Künstliche Intelligenz: Notizen, Übungen u
 
 ## Inhalt
 
-_Noch leer – hier kommen nach und nach Themen und Projekte dazu._
+| Nr. | Projekt | Beschreibung |
+| --- | --- | --- |
+| 01 | [philosophie-bot](01-philosophie-bot/) | Browser-Automatisierung mit Playwright (TypeScript) |
 
 ## Ziele
 
