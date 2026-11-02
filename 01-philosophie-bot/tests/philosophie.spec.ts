@@ -2,7 +2,12 @@ import { test, expect, type Page } from '@playwright/test';
 
 const BASE = 'https://en.wikipedia.org';
 const TARGET = 'Philosophy';
-const START_ARTICLES = 10;
+// Einstellbar per Umgebungsvariable, z. B. ANZAHL=3 ANSEHEN=1 npx playwright test …
+const START_ARTICLES = Number(process.env.ANZAHL ?? 10);
+const WATCH = process.env.ANSEHEN === '1';
+if (!Number.isInteger(START_ARTICLES) || START_ARTICLES < 1) {
+  throw new Error(`ANZAHL muss eine ganze Zahl ≥ 1 sein, ist aber "${process.env.ANZAHL}"`);
+}
 const MAX_CLICKS = 50;
 const PAUSE_MS = 1000;
 
@@ -24,6 +29,9 @@ const OUTCOME_LABEL: Record<Outcome, string> = {
 
 // Wikipedia bittet Bots um einen beschreibenden User-Agent.
 test.use({ userAgent: 'ki-lernpfad-philosophie-bot/1.0 (Lernprojekt, Playwright)' });
+
+// page.pause() braucht ein sichtbares Fenster; ohne ANSEHEN bleibt --headed bzw. die Config maßgeblich.
+if (WATCH) test.use({ headless: false });
 
 // Der kanonische Link steht im <head> und ist schon nach Weiterleitungen aufgelöst
 // (z. B. /wiki/Philosophical → Philosophy), anders als page.url().
@@ -106,7 +114,8 @@ async function walk(page: Page): Promise<Walk> {
 }
 
 test('Alle Wege führen zu Philosophy', async ({ page }, testInfo) => {
-  test.setTimeout(30 * 60 * 1000);
+  // Grob 3 Minuten pro Artikel: 50 Klicks × (1 s Pause + Ladezeit) im schlimmsten Fall.
+  test.setTimeout(START_ARTICLES * 3 * 60 * 1000);
 
   const walks: Walk[] = [];
   for (let i = 1; i <= START_ARTICLES; i++) {
@@ -136,6 +145,12 @@ test('Alle Wege führen zu Philosophy', async ({ page }, testInfo) => {
     body: JSON.stringify(ranked, null, 2),
     contentType: 'application/json',
   });
+
+  if (WATCH) {
+    // 0 = kein Timeout, sonst würde der Test nach Ablauf mitten im Ansehen abgebrochen.
+    test.setTimeout(0);
+    await page.pause();
+  }
 
   // Erst nach Ausgabe und Anhang prüfen, damit die Rangliste auch bei einem Fehlschlag sichtbar bleibt.
   expect(place, 'Mindestens ein Startartikel muss Philosophy erreichen').toBeGreaterThanOrEqual(1);
