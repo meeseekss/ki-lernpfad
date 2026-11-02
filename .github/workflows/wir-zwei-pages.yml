@@ -1,0 +1,41 @@
+name: Wir zwei veröffentlichen
+
+# Veröffentlicht 03-wir-zwei auf GitHub Pages, sobald sich dort etwas ändert.
+# Einmalig nötig: Repo → Settings → Pages → Source: „GitHub Actions“.
+on:
+  push:
+    branches: [main]
+    paths: ['03-wir-zwei/**', '.github/workflows/wir-zwei-pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: wir-zwei-pages
+  cancel-in-progress: true
+
+jobs:
+  veroeffentlichen:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Nur die Dateien, die die App wirklich braucht (keine Tests, kein SQL).
+      - name: Dateien zusammenstellen
+        run: |
+          mkdir _site
+          cd 03-wir-zwei
+          cp -r index.html app.css manifest.webmanifest sw.js js icons ../_site/
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4

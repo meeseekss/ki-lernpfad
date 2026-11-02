@@ -53,3 +53,21 @@ Zusammenspiel mit `.github/workflows/screenshot-zeitraffer.yml`:
 - Cookie-Banner/Popups: pro Seite `wegklicken: RegExp[]`, die nacheinander abgearbeitet werden; `overlayWegklicken()` sucht in der Hauptseite und allen iframes. Nicht gefundene Buttons sind kein Fehler (nur Log-Hinweis).
 
 **Lokal erzeugte Screenshots nicht committen** (macOS rendert Schriften anders als der Ubuntu-Runner); nach lokalen Testläufen `git checkout -- screenshots` bzw. neue Dateien löschen. Die Bilder im Repo kommen nur aus GitHub Actions (`gh workflow run screenshot-zeitraffer.yml`).
+
+## 03-wir-zwei
+
+Paar-App „Wir zwei“ als Web-App ohne Build-Schritt: reines HTML/CSS/JS-Module, keine npm-Pakete für die App selbst (`@playwright/test` nur für Tests). Supabase wird zur Laufzeit vom CDN geladen.
+
+```bash
+cd 03-wir-zwei
+npm start    # http://localhost:4173, Mini-Server tools/server.mjs ohne Abhängigkeiten
+npm test     # Playwright, startet den Server selbst, testet im Demo-Modus (iPhone-Größe)
+```
+
+- `js/konfig.js` leer → Demo-Modus (`js/daten-demo.js`, alles in localStorage, ausgedachte Partnerin „Sie“). Mit Supabase-URL und anon-Key → `js/daten-supabase.js`. Beide haben dieselbe Schnittstelle; `js/app.js` kennt den Unterschied nicht.
+- Regeln (nur eigenes Paar sichtbar, Antworten unveränderlich, Partner-Antwort erst nach eigener, Frage für morgen erst morgen sichtbar) stehen als RLS in `supabase/schema.sql`. Die Demo bildet sie in `laden()` nach – bei Regeländerungen beide anpassen.
+- „Heute“ ist immer der Tag in Europe/Berlin (`heute()` in `js/hilfen.js` und `public.heute()` in SQL).
+- Die Eher-Frage des Tages ergibt sich nur aus dem Datum (`eherFrageFuer`); Fragen in `js/inhalte.js` nur hinten anhängen, sonst verschiebt sich die Zuordnung.
+- Nutzertext immer über `esc()` ins HTML.
+- Neue Dateien, die offline verfügbar sein sollen, in `GRUNDGERUEST` in `sw.js` eintragen und `SPEICHER` hochzählen.
+- Veröffentlichung: `.github/workflows/wir-zwei-pages.yml` (GitHub Pages, nur bei Änderungen in `03-wir-zwei/`).

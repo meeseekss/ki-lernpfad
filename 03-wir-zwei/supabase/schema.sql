@@ -1,0 +1,251 @@
+-- Wir zwei · Datenbank-Schema für Supabase
+-- Einmal komplett im Supabase-Dashboard unter „SQL Editor“ ausführen.
+--
+-- Grundregeln, die hier in der Datenbank erzwungen werden (nicht nur in der App):
+--   * Jede Person sieht nur Daten aus ihrem eigenen Paar.
+--   * Antworten können nur angelegt, nie geändert oder gelöscht werden.
+--   * Die Antwort des anderen ist erst sichtbar, wenn man selbst geantwortet hat.
+--   * Eine Frage für morgen sieht der andere erst ab morgen.
+--   * Ein Paar hat höchstens zwei Mitglieder.
+
+-- ───────────────────────── Tabellen ─────────────────────────
+
+create table public.paare (
+  id          uuid primary key default gen_random_uuid(),
+  code        text not null unique,
+  erstellt_am timestamptz not null default now()
+);
+
+create table public.profile (
+  id            uuid primary key references auth.users on delete cascade,
+  paar_id       uuid references public.paare on delete set null,
+  name          text not null check (char_length(name) between 1 and 30),
+  stimmung      text check (stimmung in ('arm', 'gut', 'platt', 'down', 'gestresst', 'stimme')),
+  stimmung_seit timestamptz
+);
+
+create table public.fragen (
+  id          uuid primary key default gen_random_uuid(),
+  paar_id     uuid not null references public.paare on delete cascade,
+  autor       uuid not null references public.profile on delete cascade,
+  tag         date not null,
+  text        text not null check (char_length(text) between 3 and 200),
+  erstellt_am timestamptz not null default now(),
+  unique (autor, tag) -- jede Person stellt pro Tag genau eine Frage
+);
+
+create table public.antworten (
+  frage_id    uuid not null references public.fragen on delete cascade,
+  autor       uuid not null references public.profile on delete cascade,
+  paar_id     uuid not null references public.paare on delete cascade,
+  text        text not null check (char_length(text) between 1 and 500),
+  erstellt_am timestamptz not null default now(),
+  primary key (frage_id, autor) -- eine Antwort pro Person und Frage
+);
+
+create table public.eher_antworten (
+  autor       uuid not null references public.profile on delete cascade,
+  paar_id     uuid not null references public.paare on delete cascade,
+  tag         date not null,
+  wahl        smallint not null check (wahl in (0, 1)),
+  erstellt_am timestamptz not null default now(),
+  primary key (autor, tag)
+);
+
+create table public.gesten (
+  id          bigint generated always as identity primary key,
+  paar_id     uuid not null references public.paare on delete cascade,
+  von         uuid not null references public.profile on delete cascade,
+  art         text not null check (art in ('umarmung', 'anruf')),
+  erstellt_am timestamptz not null default now()
+);
+
+create index on public.fragen (paar_id, tag);
+create index on public.antworten (paar_id);
+create index on public.eher_antworten (paar_id, tag);
+create index on public.gesten (paar_id, erstellt_am);
+
+-- ───────────────────────── Hilfsfunktionen ─────────────────────────
+-- „security definer“ = läuft mit Rechten des Erstellers. So können die Zugriffsregeln
+-- nachschauen, ohne sich selbst endlos erneut zu prüfen.
+
+create function public.heute() returns date
+language sql stable set search_path = public as $$
+  select (now() at time zone 'Europe/Berlin')::date
+$$;
+
+create function public.mein_paar() returns uuid
+language sql stable security definer set search_path = public as $$
+  select paar_id from public.profile where id = auth.uid()
+$$;
+
+create function public.habe_beantwortet(p_frage uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.antworten where frage_id = p_frage and autor = auth.uid())
+$$;
+
+create function public.habe_eher_gewaehlt(p_tag date) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.eher_antworten where tag = p_tag and autor = auth.uid())
+$$;
+
+-- Verrät nur, OB der andere schon geantwortet hat – nie WAS.
+create function public.partner_status() returns json
+language sql stable security definer set search_path = public as $$
+  select json_build_object(
+    'fragen', coalesce((
+      select json_agg(a.frage_id)
+      from public.antworten a
+      join public.fragen f on f.id = a.frage_id
+      where a.paar_id = public.mein_paar()
+        and a.autor <> auth.uid()
+        and f.tag >= public.heute() - 7
+    ), '[]'::json),
+    'eher_heute', exists (
+      select 1 from public.eher_antworten
+      where paar_id = public.mein_paar() and autor <> auth.uid() and tag = public.heute()
+    )
+  )
+$$;
+
+-- Neues Paar anlegen, gibt den Einladungscode zurück.
+create function public.paar_erstellen(p_name text) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  v_code text;
+  v_paar uuid;
+  v_zeichen constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; -- ohne 0/O/1/I/L
+begin
+  if auth.uid() is null then
+    raise exception 'Nicht angemeldet';
+  end if;
+  if exists (select 1 from profile where id = auth.uid() and paar_id is not null) then
+    raise exception 'Du bist schon in einem Paar';
+  end if;
+  loop
+    v_code := '';
+    for i in 1..6 loop
+      v_code := v_code || substr(v_zeichen, 1 + floor(random() * length(v_zeichen))::int, 1);
+    end loop;
+    exit when not exists (select 1 from paare where code = v_code);
+  end loop;
+  insert into paare (code) values (v_code) returning id into v_paar;
+  insert into profile (id, paar_id, name) values (auth.uid(), v_paar, trim(p_name))
+    on conflict (id) do update set paar_id = excluded.paar_id, name = excluded.name;
+  return v_code;
+end
+$$;
+
+-- Mit einem Code einem bestehenden Paar beitreten.
+create function public.paar_beitreten(p_code text, p_name text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_paar uuid;
+begin
+  if auth.uid() is null then
+    raise exception 'Nicht angemeldet';
+  end if;
+  if exists (select 1 from profile where id = auth.uid() and paar_id is not null) then
+    raise exception 'Du bist schon in einem Paar';
+  end if;
+  select id into v_paar from paare where code = upper(trim(p_code)) for update;
+  if v_paar is null then
+    raise exception 'Diesen Code gibt es nicht';
+  end if;
+  if (select count(*) from profile where paar_id = v_paar) >= 2 then
+    raise exception 'Dieses Paar ist schon vollständig';
+  end if;
+  insert into profile (id, paar_id, name) values (auth.uid(), v_paar, trim(p_name))
+    on conflict (id) do update set paar_id = excluded.paar_id, name = excluded.name;
+end
+$$;
+
+revoke execute on function public.mein_paar(), public.habe_beantwortet(uuid), public.habe_eher_gewaehlt(date),
+  public.partner_status(), public.paar_erstellen(text), public.paar_beitreten(text, text) from public, anon;
+grant execute on function public.mein_paar(), public.habe_beantwortet(uuid), public.habe_eher_gewaehlt(date),
+  public.partner_status(), public.paar_erstellen(text), public.paar_beitreten(text, text) to authenticated;
+
+-- ───────────────────────── Zugriffsregeln (Row Level Security) ─────────────────────────
+
+alter table public.paare          enable row level security;
+alter table public.profile        enable row level security;
+alter table public.fragen         enable row level security;
+alter table public.antworten      enable row level security;
+alter table public.eher_antworten enable row level security;
+alter table public.gesten         enable row level security;
+
+-- Ohne Anmeldung darf niemand etwas.
+revoke all on public.paare, public.profile, public.fragen, public.antworten,
+  public.eher_antworten, public.gesten from anon;
+
+-- Angemeldete bekommen genau die Rechte, die die App braucht – nicht mehr.
+-- (So funktioniert es auch, wenn „Automatically expose new tables“ ausgeschaltet ist.)
+grant usage on schema public to authenticated;
+grant select on public.paare, public.profile, public.fragen, public.antworten,
+  public.eher_antworten, public.gesten to authenticated;
+grant insert on public.fragen, public.antworten, public.eher_antworten, public.gesten to authenticated;
+-- Rechte, die die App nie braucht (TRUNCATE würde die Zugriffsregeln umgehen).
+revoke truncate, references, trigger on public.paare, public.profile, public.fragen,
+  public.antworten, public.eher_antworten, public.gesten from authenticated;
+
+-- Paare: nur das eigene lesen. Anlegen nur über paar_erstellen().
+create policy "eigenes Paar lesen" on public.paare
+  for select to authenticated using (id = public.mein_paar());
+
+-- Profile: sich selbst und den Partner lesen; nur Name und Stimmung ändern.
+create policy "Profile im Paar lesen" on public.profile
+  for select to authenticated using (id = auth.uid() or paar_id = public.mein_paar());
+create policy "eigenes Profil ändern" on public.profile
+  for update to authenticated using (id = auth.uid()) with check (id = auth.uid());
+revoke insert, update, delete on public.profile from authenticated;
+grant update (name, stimmung, stimmung_seit) on public.profile to authenticated;
+
+-- Fragen: eigene immer, die des Partners erst ab ihrem Tag. Nur für heute oder morgen anlegen.
+create policy "Fragen im Paar lesen" on public.fragen
+  for select to authenticated
+  using (paar_id = public.mein_paar() and (autor = auth.uid() or tag <= public.heute()));
+create policy "eigene Frage anlegen" on public.fragen
+  for insert to authenticated
+  with check (
+    autor = auth.uid()
+    and paar_id = public.mein_paar()
+    and tag between public.heute() and public.heute() + 1
+  );
+
+-- Antworten: eigene immer, die des Partners erst nach der eigenen. Kein Ändern, kein Löschen.
+create policy "Antworten lesen" on public.antworten
+  for select to authenticated
+  using (autor = auth.uid() or (paar_id = public.mein_paar() and public.habe_beantwortet(frage_id)));
+create policy "eigene Antwort anlegen" on public.antworten
+  for insert to authenticated
+  with check (
+    autor = auth.uid()
+    and paar_id = public.mein_paar()
+    and exists (
+      select 1 from public.fragen f
+      where f.id = frage_id and f.paar_id = public.mein_paar() and f.tag <= public.heute()
+    )
+  );
+
+-- „Was würdest du eher?“: gleiche Regeln, nur für den heutigen Tag.
+create policy "Eher-Antworten lesen" on public.eher_antworten
+  for select to authenticated
+  using (autor = auth.uid() or (paar_id = public.mein_paar() and public.habe_eher_gewaehlt(tag)));
+create policy "eigene Eher-Antwort anlegen" on public.eher_antworten
+  for insert to authenticated
+  with check (autor = auth.uid() and paar_id = public.mein_paar() and tag = public.heute());
+
+-- Gesten (Umarmung, „ich ruf dich an“): im Paar lesen und senden.
+create policy "Gesten lesen" on public.gesten
+  for select to authenticated using (paar_id = public.mein_paar());
+create policy "Geste senden" on public.gesten
+  for insert to authenticated with check (von = auth.uid() and paar_id = public.mein_paar());
+
+-- Ändern und Löschen bleibt für alle Inhalte gesperrt (es gibt bewusst keine Regel dafür).
+revoke update, delete on public.fragen, public.antworten, public.eher_antworten, public.gesten from authenticated;
+
+-- ───────────────────────── Echtzeit ─────────────────────────
+-- Damit Änderungen sofort beim anderen ankommen.
+
+alter publication supabase_realtime add table
+  public.profile, public.fragen, public.antworten, public.eher_antworten, public.gesten;

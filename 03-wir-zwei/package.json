@@ -1,0 +1,14 @@
+{
+  "name": "wir-zwei",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Paar-App: Stimmung teilen, Frage des Tages, Was würdest du eher?",
+  "scripts": {
+    "start": "node tools/server.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0"
+  }
+}

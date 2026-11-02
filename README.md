@@ -9,6 +9,7 @@ Mein persönlicher Lernpfad rund um Künstliche Intelligenz: Notizen, Übungen u
 | --- | --- | --- |
 | 01 | [philosophie-bot](01-philosophie-bot/) | Browser-Automatisierung mit Playwright (TypeScript) |
 | 02 | [screenshot-zeitraffer](02-screenshot-zeitraffer/) | Tägliche Screenshots per Playwright + GitHub Actions |
+| 03 | [wir-zwei](03-wir-zwei/) | Paar-App als Web-App (PWA) mit Supabase, getestet mit Playwright |
 
 ## Ziele
 
