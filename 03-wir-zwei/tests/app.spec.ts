@@ -64,8 +64,39 @@ test('Was würdest du eher: Wahl zeigt Ergebnis und lässt sich nicht ändern', 
 });
 
 test('Archiv zeigt die Fragen der letzten Tage', async ({ page }) => {
-  await page.goto('/?demo#fragen');
-  await page.getByRole('tab', { name: 'Unser Archiv' }).click();
+  await page.getByRole('link', { name: 'Archiv' }).click();
   await expect(page.getByText('Wenn du ein Tier wärst, welches wärst du?')).toBeVisible();
   await expect(page.getByText(/tagsüber faul/)).toBeVisible();
+});
+
+test('Foto des Tages: Kamera-Ablauf, Posten und Tauschen', async ({ page }) => {
+  await page.getByRole('link', { name: /Foto des Tages/ }).first().click();
+  // Das Foto der Partnerin ist sofort sichtbar
+  const ihres = page.getByRole('region', { name: 'Foto von Sie' });
+  await expect(ihres.locator('.foto-gross')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Foto machen' }).click();
+  const kamera = page.getByRole('dialog', { name: 'Foto des Tages aufnehmen' });
+  await expect(kamera.getByRole('button', { name: 'Foto aufnehmen' })).toBeEnabled();
+  await kamera.getByRole('button', { name: 'Foto aufnehmen' }).click();
+  // Nach Countdown kommt die Vorschau
+  await expect(kamera.getByRole('button', { name: 'Posten' })).toBeVisible({ timeout: 10000 });
+  await kamera.getByRole('button', { name: 'Posten' }).click();
+
+  const meins = page.getByRole('region', { name: 'Dein Foto' });
+  await expect(meins.locator('.foto-gross')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Foto machen' })).toHaveCount(0); // nur ein Foto pro Tag
+
+  // Antippen des kleinen Bildes tauscht groß und klein
+  const vorher = await meins.locator('.foto-gross').getAttribute('src');
+  await meins.getByRole('button', { name: 'Bilder tauschen' }).click();
+  await expect(meins.locator('.foto-gross')).not.toHaveAttribute('src', vorher);
+});
+
+test('Foto des Tages: Abbrechen schließt die Kamera ohne zu posten', async ({ page }) => {
+  await page.goto('/?demo#foto');
+  await page.getByRole('button', { name: 'Foto machen' }).click();
+  await page.getByRole('button', { name: 'Abbrechen' }).click();
+  await expect(page.getByRole('dialog', { name: 'Foto des Tages aufnehmen' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Foto machen' })).toBeVisible();
 });

@@ -2,7 +2,7 @@
 // Strategie „erst Netz, dann Zwischenspeicher“: Neue Versionen kommen sofort an,
 // offline wird die zuletzt geladene Version gezeigt.
 
-const SPEICHER = 'wir-zwei-v2';
+const SPEICHER = 'wir-zwei-v3';
 const GRUNDGERUEST = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const GRUNDGERUEST = [
   './js/konfig.js',
   './js/daten-demo.js',
   './js/daten-supabase.js',
+  './js/kamera.js',
   './icons/icon.svg',
   './icons/icon-192.png',
 ];

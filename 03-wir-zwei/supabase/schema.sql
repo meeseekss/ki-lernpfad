@@ -321,3 +321,102 @@ revoke execute on function public.fragen_des_tages_melden(boolean) from public, 
 
 select cron.schedule('fragen-um-8', '0 6,7 * * *', 'select public.fragen_des_tages_melden()');
 -- Zum Ausprobieren sofort auslösen: select public.fragen_des_tages_melden(true);
+
+-- ───────────────────────── Foto des Tages (BeReal-Stil) ─────────────────────────
+-- Ein Eintrag pro Person und Tag. Die Bilder liegen im privaten Storage-Bucket „fotos“
+-- unter <paar_id>/<tag>/<nutzer>-hinten.jpg und <nutzer>-vorne.jpg.
+-- Sichtbar nur im eigenen Paar und nur am selben Tag; stündlich räumt ein Job alte Tage weg.
+
+create table public.fotos (
+  autor       uuid not null default auth.uid() references public.profile on delete cascade,
+  paar_id     uuid not null references public.paare on delete cascade,
+  tag         date not null default public.heute(),
+  erstellt_am timestamptz not null default now(),
+  primary key (autor, tag)
+);
+
+alter table public.fotos enable row level security;
+revoke all on public.fotos from anon, authenticated;
+grant select, insert on public.fotos to authenticated;
+grant select, delete on public.fotos to service_role;
+grant select on public.paare to service_role;
+
+create policy "Fotos im Paar heute ansehen" on public.fotos
+  for select to authenticated
+  using (paar_id = public.mein_paar() and tag = public.heute());
+
+-- Posten geht nur, wenn beide Bilder schon hochgeladen sind.
+create policy "eigenes Foto posten" on public.fotos
+  for insert to authenticated
+  with check (
+    autor = auth.uid()
+    and paar_id = public.mein_paar()
+    and tag = public.heute()
+    and exists (select 1 from storage.objects o where o.bucket_id = 'fotos'
+                and o.name = paar_id::text || '/' || tag::text || '/' || auth.uid()::text || '-hinten.jpg')
+    and exists (select 1 from storage.objects o where o.bucket_id = 'fotos'
+                and o.name = paar_id::text || '/' || tag::text || '/' || auth.uid()::text || '-vorne.jpg')
+  );
+
+alter publication supabase_realtime add table public.fotos;
+
+-- Privater Bucket, nur JPEG, höchstens 3 MB pro Bild.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('fotos', 'fotos', false, 3145728, array['image/jpeg'])
+on conflict (id) do nothing;
+
+-- Hat diese Person heute schon gepostet? (Danach lassen sich die Bilder nicht mehr ersetzen.)
+create function public.foto_gepostet() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.fotos where autor = auth.uid() and tag = public.heute())
+$$;
+revoke execute on function public.foto_gepostet() from public, anon;
+grant execute on function public.foto_gepostet() to authenticated;
+
+create policy "Fotos im Paar heute laden" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'fotos'
+    and (storage.foldername(name))[1] = public.mein_paar()::text
+    and (storage.foldername(name))[2] = public.heute()::text
+  );
+
+create policy "eigene Fotos hochladen" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'fotos'
+    and (storage.foldername(name))[1] = public.mein_paar()::text
+    and (storage.foldername(name))[2] = public.heute()::text
+    and storage.filename(name) in (auth.uid()::text || '-hinten.jpg', auth.uid()::text || '-vorne.jpg')
+    and not public.foto_gepostet()
+  );
+
+-- Ersetzen (z. B. „Nochmal“ nach einem abgebrochenen Upload) nur, solange noch nicht gepostet.
+create policy "eigene Fotos ersetzen" on storage.objects
+  for update to authenticated
+  using (
+    bucket_id = 'fotos'
+    and (storage.foldername(name))[1] = public.mein_paar()::text
+    and (storage.foldername(name))[2] = public.heute()::text
+    and storage.filename(name) in (auth.uid()::text || '-hinten.jpg', auth.uid()::text || '-vorne.jpg')
+    and not public.foto_gepostet()
+  );
+
+-- Stündlich alte Fotos löschen (Edge Function „aufraeumen“; direktes Löschen aus storage.objects
+-- erlaubt Supabase nicht, deshalb über die Storage-API). <PROJEKT>/<ANON-SCHLÜSSEL> ersetzen.
+create or replace function public.fotos_aufraeumen() returns bigint
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  return net.http_post(
+    url := 'https://<PROJEKT>.supabase.co/functions/v1/aufraeumen',
+    body := '{}'::jsonb,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer <ANON-SCHLÜSSEL>',
+      'x-wir-zwei-cron', (select cron_geheimnis from public.push_schluessel where id = 1)),
+    timeout_milliseconds := 60000);
+end
+$$;
+revoke execute on function public.fotos_aufraeumen() from public, anon, authenticated;
+
+select cron.schedule('fotos-aufraeumen', '1 * * * *', 'select public.fotos_aufraeumen()');

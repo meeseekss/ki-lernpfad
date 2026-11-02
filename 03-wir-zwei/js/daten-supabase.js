@@ -18,7 +18,9 @@ function uebersetzeFehler(text = '') {
   if (/email not confirmed/i.test(text)) return 'Bitte bestätige zuerst deine E-Mail-Adresse über den Link in der Mail.';
   if (/signups? not allowed|signup.*disabled/i.test(text)) return 'Neue Konten sind in Supabase gerade abgeschaltet.';
   if (/invalid.*email|email.*invalid/i.test(text)) return 'Diese E-Mail-Adresse sieht nicht richtig aus.';
+  if (/fotos_pkey/i.test(text)) return 'Du hast heute schon ein Foto gepostet.';
   if (/duplicate key/i.test(text)) return 'Das hast du schon gespeichert.';
+  if (/exceeded|too large|payload/i.test(text)) return 'Das Foto ist zu groß.';
   if (/row-level security/i.test(text)) return 'Das ist leider nicht erlaubt.';
   if (/failed to fetch|network/i.test(text)) return 'Keine Verbindung. Bist du online?';
   return text;
@@ -31,6 +33,19 @@ export async function erstelleSupabaseDaten(url, schluessel) {
   });
   let ichId = null;
   let kanal = null;
+
+  // Fotos liegen privat; der Browser bekommt zeitlich begrenzte Links (1 Stunde).
+  // Zwischengespeichert, damit beim Neuladen nicht jedes Mal neue Links (und Neu-Downloads) entstehen.
+  const linkSpeicher = new Map();
+  async function fotoLinks(pfade) {
+    const jetzt = Date.now();
+    const fehlend = pfade.filter((p) => !(linkSpeicher.get(p)?.bis > jetzt + 5 * 60000));
+    if (fehlend.length) {
+      const links = pruefe(await sb.storage.from('fotos').createSignedUrls(fehlend, 3600));
+      for (const l of links) if (l.signedUrl) linkSpeicher.set(l.path, { url: l.signedUrl, bis: jetzt + 3600 * 1000 });
+    }
+    return (pfad) => linkSpeicher.get(pfad)?.url ?? null;
+  }
 
   return {
     demo: false,
@@ -67,14 +82,22 @@ export async function erstelleSupabaseDaten(url, schluessel) {
 
     async laden() {
       const h = heute();
-      const [profile, paare, fragen, antworten, eher, partnerStatus] = await Promise.all([
+      const [profile, paare, fragen, antworten, eher, partnerStatus, fotoZeilen] = await Promise.all([
         sb.from('profile').select('id, name, stimmung, stimmung_seit'),
         sb.from('paare').select('code'),
         sb.from('fragen').select('id, autor, tag, text').gte('tag', tagPlus(h, -60)).order('tag', { ascending: false }),
         sb.from('antworten').select('frage_id, autor, text, erstellt_am').gte('erstellt_am', `${tagPlus(h, -62)}T00:00:00Z`),
         sb.from('eher_antworten').select('tag, autor, wahl').gte('tag', tagPlus(h, -120)),
         sb.rpc('partner_status'),
+        sb.from('fotos').select('autor, paar_id, tag, erstellt_am'),
       ].map((p) => p.then(pruefe)));
+
+      // Foto des Tages: Pfade bauen und Links holen
+      const pfad = (f, seite) => `${f.paar_id}/${f.tag}/${f.autor}-${seite}.jpg`;
+      const link = await fotoLinks(fotoZeilen.flatMap((f) => [pfad(f, 'hinten'), pfad(f, 'vorne')]));
+      const fotos = fotoZeilen.map((f) => ({
+        autor: f.autor, erstelltAm: f.erstellt_am, hinten: link(pfad(f, 'hinten')), vorne: link(pfad(f, 'vorne')),
+      }));
 
       const person = (p) => p && { id: p.id, name: p.name, stimmung: p.stimmung, stimmungSeit: p.stimmung_seit };
       return {
@@ -86,7 +109,20 @@ export async function erstelleSupabaseDaten(url, schluessel) {
         partnerHatBeantwortet: partnerStatus.fragen ?? [],
         eher,
         partnerEherHeute: Boolean(partnerStatus.eher_heute),
+        fotos,
       };
+    },
+
+    // Foto des Tages: erst beide Bilder hochladen, dann posten (die Datenbank prüft, dass beide da sind).
+    async fotoPosten(hinten, vorne) {
+      const paarId = pruefe(await sb.rpc('mein_paar'));
+      const tag = heute();
+      const basis = `${paarId}/${tag}/${ichId}`;
+      const lager = sb.storage.from('fotos');
+      const optionen = { contentType: 'image/jpeg', upsert: true };
+      pruefe(await lager.upload(`${basis}-hinten.jpg`, hinten, optionen));
+      pruefe(await lager.upload(`${basis}-vorne.jpg`, vorne, optionen));
+      pruefe(await sb.from('fotos').insert({ paar_id: paarId, tag }));
     },
 
     async stimmungSetzen(schluessel) {
@@ -141,7 +177,7 @@ export async function erstelleSupabaseDaten(url, schluessel) {
     abonnieren(beiAenderung, beiGeste) {
       if (kanal) sb.removeChannel(kanal);
       kanal = sb.channel('wir-zwei');
-      for (const tabelle of ['profile', 'fragen', 'antworten', 'eher_antworten']) {
+      for (const tabelle of ['profile', 'fragen', 'antworten', 'eher_antworten', 'fotos']) {
         kanal.on('postgres_changes', { event: '*', schema: 'public', table: tabelle }, () => beiAenderung());
       }
       kanal.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gesten' }, ({ new: geste }) => {

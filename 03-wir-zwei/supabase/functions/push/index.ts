@@ -37,6 +37,7 @@ function nachricht(art: string, ich: { stimmung: string | null }) {
     case 'frage': return { text: 'hat sich eine Frage für euch ausgedacht ❓', ziel: './#fragen' };
     case 'antwort': return { text: 'hat eine Frage beantwortet 💬', ziel: './#fragen' };
     case 'eher': return { text: 'hat bei „Was würdest du eher?“ gewählt', ziel: './#eher' };
+    case 'foto': return { text: 'hat ein Foto des Tages gepostet 📸', ziel: './#foto' };
     default: return null;
   }
 }

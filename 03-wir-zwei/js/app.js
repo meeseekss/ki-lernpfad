@@ -7,14 +7,15 @@ import {
   serieBerechnen, anfangsbuchstabe, herzRegen, zeigeHinweis, vibrieren,
 } from './hilfen.js';
 import { erstelleDemoDaten } from './daten-demo.js';
+import { kameraOeffnen } from './kamera.js';
 
 const wurzel = document.getElementById('app');
-const TABS = ['heute', 'fragen', 'eher'];
+const TABS = ['heute', 'fragen', 'foto', 'eher', 'archiv'];
 
 const z = {
   phase: 'laden', // laden | fehler | abgemeldet | kein-paar | wartet | bereit
   tab: tabAusAdresse(),
-  fragenAnsicht: 'heute',
+  fotoGetauscht: {}, // pro Person: großes und kleines Bild vertauscht?
   email: '',
   anmeldeModus: 'anmelden', // anmelden | registrieren
   bestaetigen: false,
@@ -49,6 +50,8 @@ const S = {
   haken: (gr = 14, dick = 2.5) => `<svg width="${gr}" height="${gr}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${dick}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
   pfeil: () => '<svg class="pfeil" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
   zahnrad: () => '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  kamera: (gr = 20) => `<svg width="${gr}" height="${gr}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7.5 6.5H4.5A2.5 2.5 0 0 0 2 9v9a2.5 2.5 0 0 0 2.5 2.5h15A2.5 2.5 0 0 0 22 18V9a2.5 2.5 0 0 0-2.5-2.5h-3z"/><circle cx="12" cy="13" r="3.5"/></svg>`,
+  buch: (gr = 20, dick = 2) => `<svg width="${gr}" height="${gr}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${dick}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h13v15H6a2 2 0 0 0-2 2z"/><path d="M4 19.5A2 2 0 0 0 6 21.5h13v-3.5"/><path d="M12 7.5s-2-1.6-3.2-.3c-1.1 1.2.3 2.7 3.2 4.3 2.9-1.6 4.3-3.1 3.2-4.3C14 5.9 12 7.5 12 7.5z"/></svg>`,
   glocke: (gr = 20) => `<svg width="${gr}" height="${gr}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
   funken: () => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>',
 };
@@ -278,7 +281,8 @@ function ansichtWartet() {
 
 function ansichtApp() {
   const d = z.daten;
-  const inhalt = z.tab === 'fragen' ? ansichtFragen(d) : z.tab === 'eher' ? ansichtEher(d) : ansichtHeute(d);
+  const ansichten = { fragen: ansichtFragen, eher: ansichtEher, foto: ansichtFoto, archiv: ansichtArchivTab };
+  const inhalt = (ansichten[z.tab] ?? ansichtHeute)(d);
   return `<main class="inhalt" id="inhalt">
       ${quelle.demo ? '<div class="demo-band">Demo-Modus · Daten bleiben auf diesem Gerät</div>' : ''}
       ${inhalt}
@@ -328,6 +332,7 @@ function tabLeiste(d) {
   const offen = fragenOffen(d);
   const punktFragen = offen.unbeantwortet.length > 0 || !offen.eigeneGestellt;
   const punktEher = eherHeute(d).meine === null;
+  const punktFoto = !d.fotos.some((f) => f.autor === d.ich.id);
   const tab = (id, titel, symbol, punkt) => {
     const aktiv = z.tab === id;
     return `<a class="tab" href="#${id}" ${aktiv ? 'aria-current="page"' : ''}>
@@ -335,10 +340,16 @@ function tabLeiste(d) {
       <span>${titel}</span>
     </a>`;
   };
+  // Die Kamera sitzt als runder Knopf in der Mitte.
+  const fotoTab = `<a class="tab tab-kamera" href="#foto" aria-label="Foto des Tages${punktFoto ? ', noch nicht gepostet' : ''}" ${z.tab === 'foto' ? 'aria-current="page"' : ''}>
+      <span class="kamera-kreis">${S.kamera(26)}</span>${punktFoto ? '<span class="punkt"></span>' : ''}
+    </a>`;
   return `<nav class="tabs" aria-label="Hauptnavigation"><div class="tabs-innen">
     ${tab('heute', 'Heute', (a) => S.herz(26, a), false)}
     ${tab('fragen', 'Fragen', (a) => S.frage(26, a ? 2.2 : 1.8), punktFragen)}
+    ${fotoTab}
     ${tab('eher', 'Eher', (a) => S.tausch(26, a ? 2.2 : 1.8), punktEher)}
+    ${tab('archiv', 'Archiv', (a) => S.buch(26, a ? 2.2 : 1.8), false)}
   </div></nav>`;
 }
 
@@ -432,6 +443,12 @@ function ansichtHeute(d) {
 
   const serie = serieBerechnen(d.eher, d.ich.id, p.id);
 
+  const meinFoto = d.fotos.some((f) => f.autor === d.ich.id);
+  const ihrFoto = d.fotos.some((f) => f.autor === p.id);
+  const fotoUnter = meinFoto
+    ? (ihrFoto ? 'Ihr habt beide gepostet' : `Gepostet · ${esc(p.name)} fehlt noch`)
+    : (ihrFoto ? `${esc(p.name)} hat schon ein Foto gepostet` : 'Noch kein Foto heute');
+
   // Einmaliger, wegklickbarer Hinweis auf Mitteilungen
   const push = pushZustand();
   let pushKarte = '';
@@ -473,18 +490,72 @@ function ansichtHeute(d) {
         <span class="zeile-text"><span class="zeile-titel">Was würdest du eher?</span><span class="klein leise">${eherUnter}</span></span>
         ${e.meine === null ? '<span class="punkt" aria-label="Neu"></span>' : ''}${S.pfeil()}
       </a>
+      <a class="zeile" href="#foto">
+        <span class="zeile-symbol rose">${S.kamera()}</span>
+        <span class="zeile-text"><span class="zeile-titel">Foto des Tages</span><span class="klein leise">${fotoUnter}</span></span>
+        ${meinFoto ? '' : '<span class="punkt" aria-label="Neu"></span>'}${S.pfeil()}
+      </a>
     </div>`;
 }
 
 // ───────────────────────── Tab: Fragen ─────────────────────────
 
 function ansichtFragen(d) {
-  const segmente = `<div class="segmente" role="tablist" aria-label="Ansicht">
-    <button role="tab" data-aktion="fragen-ansicht" data-wert="heute" aria-selected="${z.fragenAnsicht === 'heute'}">Heute</button>
-    <button role="tab" data-aktion="fragen-ansicht" data-wert="archiv" aria-selected="${z.fragenAnsicht === 'archiv'}">Unser Archiv</button>
-  </div>`;
-  const inhalt = z.fragenAnsicht === 'archiv' ? ansichtArchiv(d) : ansichtFragenHeute(d);
-  return `${kopf('Fragen', tagLang(heute()))}${segmente}${inhalt}`;
+  return `${kopf('Fragen', tagLang(heute()))}${ansichtFragenHeute(d)}`;
+}
+
+// ───────────────────────── Tab: Archiv ─────────────────────────
+
+function ansichtArchivTab(d) {
+  return `${kopf('Archiv', 'Eure Fragen und Antworten')}${ansichtArchiv(d)}`;
+}
+
+// ───────────────────────── Tab: Foto des Tages ─────────────────────────
+
+function uhrzeit(iso) {
+  return new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+}
+
+function fotoKarte(foto, person, rolle, titel) {
+  // Antippen des kleinen Bildes tauscht groß und klein – wie bei BeReal.
+  const getauscht = Boolean(z.fotoGetauscht[foto.autor]);
+  const gross = getauscht ? foto.vorne : foto.hinten;
+  const klein = getauscht ? foto.hinten : foto.vorne;
+  return `<section class="karte foto-karte" aria-label="${titel}">
+    <div class="person-zeile">
+      ${avatar(person, rolle, 'klein')}
+      <div><div class="person-name">${titel}</div><div class="klein leise">um ${uhrzeit(foto.erstelltAm)} Uhr</div></div>
+    </div>
+    <div class="foto-paar">
+      <img class="foto-gross" src="${esc(gross)}" alt="${titel}${getauscht ? ', Selfie' : ''}">
+      <button class="foto-klein-knopf" data-aktion="foto-tauschen" data-wert="${esc(foto.autor)}" aria-label="Bilder tauschen">
+        <img class="foto-klein" src="${esc(klein)}" alt="">
+      </button>
+    </div>
+  </section>`;
+}
+
+function ansichtFoto(d) {
+  const p = d.partner;
+  const ihres = d.fotos.find((f) => f.autor === p.id);
+  const meins = d.fotos.find((f) => f.autor === d.ich.id);
+
+  const ihreKarte = ihres
+    ? fotoKarte(ihres, p, 'partner', `Foto von ${esc(p.name)}`)
+    : `<section class="karte leer"><p class="klein">${esc(p.name)} hat heute noch kein Foto gepostet. Sobald es da ist, siehst du es hier.</p></section>`;
+
+  const meineKarte = meins
+    ? fotoKarte(meins, d.ich, 'ich', 'Dein Foto')
+    : `<section class="karte foto-aufruf">
+        <span class="foto-aufruf-symbol">${S.kamera(34)}</span>
+        <h2>Was machst du gerade?</h2>
+        <p class="klein leise">Erst ein Foto von der Welt, direkt danach ein Selfie. Ein Foto pro Tag, um Mitternacht ist es wieder weg.</p>
+        <button class="knopf haupt" data-aktion="foto-machen" ${aus()}>${S.kamera(20)} Foto machen</button>
+      </section>`;
+
+  return `
+    ${kopf('Foto des Tages', 'Verschwindet um Mitternacht')}
+    ${meins ? ihreKarte + meineKarte : meineKarte + ihreKarte}`;
 }
 
 function ansichtFragenHeute(d) {
@@ -722,7 +793,19 @@ const aktionen = {
     setTimeout(() => { z.gesteGesendet = null; render(); }, 6000);
   },
 
-  'fragen-ansicht'(wert) { z.fragenAnsicht = wert; },
+  'foto-tauschen'(autor) { z.fotoGetauscht[autor] = !z.fotoGetauscht[autor]; },
+
+  async 'foto-machen'() {
+    const bilder = await kameraOeffnen();
+    if (!bilder) return;
+    zeigeHinweis('Foto wird hochgeladen …');
+    await quelle.fotoPosten(bilder.hinten, bilder.vorne);
+    quelle.benachrichtigen('foto');
+    vibrieren();
+    herzRegen(6);
+    await neuLaden();
+    zeigeHinweis('Gepostet! 📸');
+  },
 
   idee(feldId) {
     const feld = document.getElementById(feldId);

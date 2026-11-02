@@ -15,6 +15,36 @@ const IHRE_ANTWORTEN = [
   'Frag mich das heute Abend noch mal, dann erzähl ich mehr.',
 ];
 
+// Beispielfoto der Demo-Partnerin: gezeichnet statt fotografiert (Herbstspaziergang + Selfie).
+const svgBild = (inhalt, b, h) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${b} ${h}">${inhalt}</svg>`)}`;
+const DEMO_HINTEN = svgBild(`
+  <defs><linearGradient id="h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7C59F"/><stop offset="1" stop-color="#F2E3D5"/></linearGradient></defs>
+  <rect width="300" height="400" fill="url(#h)"/>
+  <circle cx="220" cy="110" r="38" fill="#FFE29A"/>
+  <path d="M0 260 Q80 200 160 250 T300 230 V400 H0z" fill="#D98E5F"/>
+  <path d="M0 300 Q90 260 180 300 T300 290 V400 H0z" fill="#B5643C"/>
+  <g fill="#7A4A2A"><rect x="60" y="190" width="10" height="90"/><rect x="230" y="200" width="9" height="80"/></g>
+  <g fill="#E07A3F"><circle cx="65" cy="180" r="34"/><circle cx="234" cy="190" r="28"/></g>
+  <g fill="#C2415B" opacity=".85"><circle cx="40" cy="350" r="6"/><circle cx="120" cy="340" r="5"/><circle cx="200" cy="360" r="7"/><circle cx="260" cy="335" r="5"/></g>`, 300, 400);
+const DEMO_VORNE = svgBild(`
+  <rect width="150" height="200" fill="#FBEDF0"/>
+  <circle cx="75" cy="92" r="42" fill="#F3C9A8"/>
+  <path d="M33 86 Q35 40 75 40 Q117 40 117 86 Q105 60 75 62 Q45 60 33 86z" fill="#6B3B2A"/>
+  <circle cx="60" cy="92" r="4" fill="#2B2B2B"/><circle cx="90" cy="92" r="4" fill="#2B2B2B"/>
+  <path d="M60 110 Q75 122 90 110" stroke="#2B2B2B" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="52" cy="104" r="6" fill="#F19BB0" opacity=".6"/><circle cx="98" cy="104" r="6" fill="#F19BB0" opacity=".6"/>
+  <path d="M20 200 Q75 140 130 200z" fill="#C2415B"/>`, 150, 200);
+
+function blobAlsDatenUrl(blob) {
+  return new Promise((fertig, fehler) => {
+    const leser = new FileReader();
+    leser.onload = () => fertig(leser.result);
+    leser.onerror = fehler;
+    leser.readAsDataURL(blob);
+  });
+}
+
 let gedaechtnis = null; // falls localStorage gesperrt ist
 
 function lesen() {
@@ -62,6 +92,9 @@ function startStand() {
       { frageId: 'f-sie-vorgestern', autor: SIE, text: 'Warmer Kakao nach dem Regen.' },
     ],
     eher,
+    fotos: [
+      { autor: SIE, tag: h, erstelltAm: new Date(Date.now() - 95 * 60000).toISOString(), hinten: DEMO_HINTEN, vorne: DEMO_VORNE },
+    ],
   };
 }
 
@@ -119,7 +152,17 @@ export function erstelleDemoDaten() {
         partnerHatBeantwortet: s.antworten.filter((a) => a.autor === SIE).map((a) => a.frageId),
         eher: s.eher.filter((e) => e.autor === ICH || ichEher.has(e.tag)),
         partnerEherHeute: s.eher.some((e) => e.autor === SIE && e.tag === h),
+        fotos: (s.fotos ?? []).filter((f) => f.tag === h),
       };
+    },
+
+    async fotoPosten(hinten, vorne) {
+      const [a, b] = await Promise.all([blobAlsDatenUrl(hinten), blobAlsDatenUrl(vorne)]);
+      aendern((s) => {
+        s.fotos = s.fotos ?? [];
+        if (s.fotos.some((f) => f.autor === ICH && f.tag === heute())) throw new Error('Du hast heute schon ein Foto gepostet.');
+        s.fotos.push({ autor: ICH, tag: heute(), erstelltAm: new Date().toISOString(), hinten: a, vorne: b });
+      });
     },
 
     async stimmungSetzen(schluessel) {

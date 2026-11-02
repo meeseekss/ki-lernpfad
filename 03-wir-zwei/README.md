@@ -8,8 +8,10 @@ Eine kleine Web-App für zwei: Stimmung teilen, jeden Tag eine selbst ausgedacht
 | Bereich | Was passiert |
 | --- | --- |
 | **Heute** | Stimmung des Schatzes oben, darunter die eigene (8 Stimmungen). Je nach Stimmung gibt es den Knopf „Umarmung schicken“ oder „Ich ruf dich gleich an“. Beim anderen fliegen Herzen über den Bildschirm. Die Pflanze wächst mit jedem Tag, an dem ihr beide die Eher-Frage beantwortet habt. |
-| **Fragen** | Jeder denkt sich pro Tag eine Frage aus, beide beantworten beide. Die Antwort des anderen bleibt versteckt, bis man selbst geantwortet hat. Antworten sind danach fest. Eine Frage für morgen kann man schon einplanen. Das Archiv sammelt alles. |
+| **Fragen** | Jeder denkt sich pro Tag eine Frage aus, beide beantworten beide. Die Antwort des anderen bleibt versteckt, bis man selbst geantwortet hat. Antworten sind danach fest. Eine Frage für morgen kann man schon einplanen. Alte Fragen landen im Archiv-Tab. |
 | **Eher** | Jeden Tag um Mitternacht eine neue Frage aus `js/inhalte.js` (149 Stück). Ein Tipp, fest gespeichert, dann „Match!“ oder „Uneinig“. |
+| **Foto** | Der Kamera-Knopf in der Mitte der Leiste: einmal am Tag ein Foto im BeReal-Stil. Erst die Rückkamera, dann automatisch ein Selfie mit Countdown. Das Foto des anderen ist sofort sichtbar, Antippen des kleinen Bildes tauscht groß und klein. Um Mitternacht verschwindet alles, auch vom Server. |
+| **Archiv** | Eigener Tab mit allen früheren Fragen und Antworten. |
 | **Mitteilungen** | Push aufs Handy, wenn der andere eine Umarmung schickt, die Stimmung ändert, eine Frage stellt, antwortet oder bei „Eher“ wählt. Für morgen eingeplante Fragen werden um 8 Uhr gemeldet. Auf dem iPhone ab iOS 16.4 und nur vom Home-Bildschirm aus. Einschalten über die Karte auf „Heute“ oder in den Einstellungen. |
 
 ## Aufbau
@@ -25,9 +27,11 @@ js/hilfen.js            Datum (deutsche Zeit), Serie, Herz-Animation, Hinweise
 js/konfig.js            Supabase-Zugang (leer = Demo-Modus)
 js/daten-demo.js        Demo: alles im Browser, ausgedachte Partnerin „Sie“
 js/daten-supabase.js    Echt: Supabase mit Echtzeit
+js/kamera.js            Kamera-Ablauf fürs Foto des Tages (Rück- dann Frontkamera)
 sw.js, manifest.webmanifest, icons/   Homescreen-App und Offline-Start
 supabase/schema.sql     Tabellen und Zugriffsregeln
 supabase/functions/push/index.ts   Edge Function: schickt die Push-Mitteilung an den Partner
+supabase/functions/aufraeumen/index.ts   Edge Function: löscht alte Fotos (stündlich per pg_cron)
 tests/app.spec.ts       Playwright-Tests im Demo-Modus
 tools/server.mjs        Mini-Webserver ohne Abhängigkeiten
 ```
@@ -53,7 +57,7 @@ npx playwright install chromium
 npm test
 ```
 
-Sechs Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmung, Antwort deckt auf und ist fest, eigene Frage stellen, Eher-Wahl ist fest, Archiv.
+Acht Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmung, Antwort deckt auf und ist fest, eigene Frage stellen, Eher-Wahl ist fest, Archiv, Foto aufnehmen/posten/tauschen, Kamera abbrechen. Die Kamera ist in den Tests eine Testkamera von Chromium (grünes Bild).
 
 ## Echt machen (einmalig)
 
@@ -71,6 +75,13 @@ Sechs Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmun
 - Neue Version der Funktion: `supabase/functions/push/index.ts` ändern und neu deployen (`npx supabase functions deploy push`).
 - `sw.js` zeigt die Mitteilung an und öffnet beim Tippen die passende Seite.
 - Um 8 Uhr deutscher Zeit ruft der Datenbank-Job `fragen-um-8` (pg_cron) die Funktion mit einem Geheimnis aus `push_schluessel.cron_geheimnis` auf; sie meldet alle Fragen, die vor heute für heute eingeplant wurden. Sofort testen: `select public.fragen_des_tages_melden(true);` im SQL Editor.
+
+## Foto des Tages
+
+- iPhone-Browser können nicht beide Kameras gleichzeitig nutzen, deshalb nacheinander: Rückkamera, dann Selfie nach 3-2-1. Geht die Live-Kamera nicht, bietet die App zwei Knöpfe, die die Kamera-App öffnen.
+- Bilder werden auf 3:4 zugeschnitten (1080×1440 und 600×800, JPEG) und in den privaten Bucket `fotos` geladen; der Browser bekommt Links, die eine Stunde gelten.
+- Die Datenbank erlaubt Posten nur, wenn beide Bilder da sind, und danach kein Ersetzen mehr.
+- Job `fotos-aufraeumen` läuft stündlich und löscht über die Edge Function `aufraeumen` alles vor heute (auch nie gepostete Reste).
 
 ## Ideen für später
 
