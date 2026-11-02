@@ -71,3 +71,5 @@ npm test     # Playwright, startet den Server selbst, testet im Demo-Modus (iPho
 - Nutzertext immer über `esc()` ins HTML.
 - Neue Dateien, die offline verfügbar sein sollen, in `GRUNDGERUEST` in `sw.js` eintragen und `SPEICHER` hochzählen.
 - Veröffentlichung: `.github/workflows/wir-zwei-pages.yml` (GitHub Pages, nur bei Änderungen in `03-wir-zwei/`).
+- Push: Edge Function `supabase/functions/push/index.ts` (in Supabase deployt, Name `push`). Neue Aktionen, die den Partner benachrichtigen sollen: `quelle.benachrichtigen(art)` in `js/app.js` aufrufen UND die Art in `nachricht()` der Funktion ergänzen. Neue Stimmungen auch in `STIMMUNGEN` der Funktion und im Check von `profile.stimmung` eintragen.
+- Täglicher Job `fragen-um-8` (pg_cron, 6 und 7 Uhr UTC, sendet nur um 8 Uhr Berlin) ruft die Funktion `push` mit Header `x-wir-zwei-cron` auf. Die Server-Rolle hat nur gezielte Rechte (siehe Ende von `supabase/schema.sql`); neue Tabellen, die die Funktion liest, dort freigeben.

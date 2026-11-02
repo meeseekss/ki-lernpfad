@@ -119,6 +119,24 @@ export async function erstelleSupabaseDaten(url, schluessel) {
       pruefe(await sb.from('gesten').insert({ paar_id: paarId, von: ichId, art }));
     },
 
+    // ── Push-Mitteilungen
+    async pushAbonnieren(abo) {
+      const { endpoint, keys } = abo.toJSON();
+      pruefe(await sb.from('push_abos').upsert(
+        { endpoint, p256dh: keys.p256dh, auth: keys.auth },
+        { onConflict: 'endpoint', ignoreDuplicates: true },
+      ));
+    },
+
+    async pushAbmelden(endpoint) {
+      pruefe(await sb.from('push_abos').delete().eq('endpoint', endpoint));
+    },
+
+    // Dem Partner Bescheid geben. Läuft im Hintergrund; ein Fehler stört die App nicht.
+    benachrichtigen(art) {
+      sb.functions.invoke('push', { body: { art } }).catch(() => {});
+    },
+
     // Echtzeit: Jede Änderung im Paar löst ein Neuladen aus, Gesten zusätzlich eine Animation.
     abonnieren(beiAenderung, beiGeste) {
       if (kanal) sb.removeChannel(kanal);

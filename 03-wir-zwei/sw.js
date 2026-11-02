@@ -2,7 +2,7 @@
 // Strategie „erst Netz, dann Zwischenspeicher“: Neue Versionen kommen sofort an,
 // offline wird die zuletzt geladene Version gezeigt.
 
-const SPEICHER = 'wir-zwei-v1';
+const SPEICHER = 'wir-zwei-v2';
 const GRUNDGERUEST = [
   './',
   './index.html',
@@ -28,6 +28,37 @@ self.addEventListener('activate', (ev) => {
       .then((namen) => Promise.all(namen.filter((n) => n !== SPEICHER).map((n) => caches.delete(n))))
       .then(() => self.clients.claim()),
   );
+});
+
+// ── Push-Mitteilungen: kommen von der Supabase-Funktion „push“.
+self.addEventListener('push', (ev) => {
+  let daten = {};
+  try { daten = ev.data?.json() ?? {}; } catch { daten = { text: ev.data?.text() }; }
+  ev.waitUntil(self.registration.showNotification(daten.titel || 'Wir zwei', {
+    body: daten.text || 'Es gibt etwas Neues.',
+    icon: 'icons/icon-192.png',
+    badge: 'icons/icon-192.png',
+    tag: daten.art || 'wir-zwei', // gleiche Art ersetzt die alte Mitteilung statt zu stapeln
+    renotify: true,
+    data: { ziel: daten.ziel || './' },
+  }));
+});
+
+// Tippen auf die Mitteilung öffnet die App an der passenden Stelle.
+self.addEventListener('notificationclick', (ev) => {
+  ev.notification.close();
+  const ziel = new URL(ev.notification.data?.ziel || './', self.registration.scope).href;
+  ev.waitUntil((async () => {
+    const fenster = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const f of fenster) {
+      if ('focus' in f) {
+        await f.focus();
+        if ('navigate' in f) await f.navigate(ziel).catch(() => {});
+        return;
+      }
+    }
+    await self.clients.openWindow(ziel);
+  })());
 });
 
 self.addEventListener('fetch', (ev) => {

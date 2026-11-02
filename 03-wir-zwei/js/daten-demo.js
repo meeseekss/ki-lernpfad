@@ -166,6 +166,9 @@ export function erstelleDemoDaten() {
     },
 
     async abmelden() {},
+    async pushAbonnieren() {},
+    async pushAbmelden() {},
+    benachrichtigen() {},
 
     zuruecksetzen() {
       schreiben(startStand());

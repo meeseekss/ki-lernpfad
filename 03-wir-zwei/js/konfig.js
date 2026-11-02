@@ -9,4 +9,6 @@
 export const konfig = {
   supabaseUrl: 'https://omrlivcaunuhfsclnvim.supabase.co',
   supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tcmxpdmNhdW51aGZzY2xudmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM2MjExNDQsImV4cCI6MjEwOTE5NzE0NH0.QN2Uo-ExDBPcdZwQagWO6BhyZ3PuttjkE0dtfy8j_OA',
+  // Öffentlicher VAPID-Schlüssel für Push-Mitteilungen (der private liegt nur in Supabase).
+  pushSchluessel: 'BK4Fu925iFHWxz86-cmW9cO5JtVqQX4EKyM0y1wpQ9K6IDvlCbA7AJyN1SvcMImDn3eltuorwfG4TrGi1AByqlw',
 };

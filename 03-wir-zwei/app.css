@@ -372,3 +372,7 @@ input { min-height: 48px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
 }
+
+/* ── Hinweis auf Mitteilungen */
+.push-karte { gap: 12px; }
+.push-karte .person-zeile { align-items: flex-start; }

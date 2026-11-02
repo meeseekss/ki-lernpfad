@@ -7,9 +7,10 @@ Eine kleine Web-App für zwei: Stimmung teilen, jeden Tag eine selbst ausgedacht
 
 | Bereich | Was passiert |
 | --- | --- |
-| **Heute** | Stimmung des Schatzes oben, darunter die eigene (6 Stimmungen). Je nach Stimmung gibt es den Knopf „Umarmung schicken“ oder „Ich ruf dich gleich an“. Beim anderen fliegen Herzen über den Bildschirm. Die Pflanze wächst mit jedem Tag, an dem ihr beide die Eher-Frage beantwortet habt. |
+| **Heute** | Stimmung des Schatzes oben, darunter die eigene (8 Stimmungen). Je nach Stimmung gibt es den Knopf „Umarmung schicken“ oder „Ich ruf dich gleich an“. Beim anderen fliegen Herzen über den Bildschirm. Die Pflanze wächst mit jedem Tag, an dem ihr beide die Eher-Frage beantwortet habt. |
 | **Fragen** | Jeder denkt sich pro Tag eine Frage aus, beide beantworten beide. Die Antwort des anderen bleibt versteckt, bis man selbst geantwortet hat. Antworten sind danach fest. Eine Frage für morgen kann man schon einplanen. Das Archiv sammelt alles. |
 | **Eher** | Jeden Tag um Mitternacht eine neue Frage aus `js/inhalte.js` (149 Stück). Ein Tipp, fest gespeichert, dann „Match!“ oder „Uneinig“. |
+| **Mitteilungen** | Push aufs Handy, wenn der andere eine Umarmung schickt, die Stimmung ändert, eine Frage stellt, antwortet oder bei „Eher“ wählt. Für morgen eingeplante Fragen werden um 8 Uhr gemeldet. Auf dem iPhone ab iOS 16.4 und nur vom Home-Bildschirm aus. Einschalten über die Karte auf „Heute“ oder in den Einstellungen. |
 
 ## Aufbau
 
@@ -26,6 +27,7 @@ js/daten-demo.js        Demo: alles im Browser, ausgedachte Partnerin „Sie“
 js/daten-supabase.js    Echt: Supabase mit Echtzeit
 sw.js, manifest.webmanifest, icons/   Homescreen-App und Offline-Start
 supabase/schema.sql     Tabellen und Zugriffsregeln
+supabase/functions/push/index.ts   Edge Function: schickt die Push-Mitteilung an den Partner
 tests/app.spec.ts       Playwright-Tests im Demo-Modus
 tools/server.mjs        Mini-Webserver ohne Abhängigkeiten
 ```
@@ -62,9 +64,16 @@ Sechs Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmun
 5. **GitHub Pages**: Repo → Settings → Pages → Source „GitHub Actions“. Nach dem Push veröffentlicht `.github/workflows/wir-zwei-pages.yml` die App unter `https://meeseekss.github.io/ki-lernpfad/`.
 6. Seite in **Safari** öffnen → Teilen → „Zum Home-Bildschirm“. Einer registriert sich und erstellt das Paar, der andere registriert sich und tritt mit dem Code bei.
 
+## Push-Mitteilungen
+
+- Die App ruft nach einer Aktion die Edge Function `push` auf (nur mit der Art, z. B. `umarmung`). Die Funktion baut den Text selbst, sucht über die Zugriffsregeln den Partner und schickt an seine Geräte (`push_abos`).
+- Der private VAPID-Schlüssel liegt in der Tabelle `push_schluessel`, die nur die Funktion lesen kann. Der öffentliche steht in `js/konfig.js`.
+- Neue Version der Funktion: `supabase/functions/push/index.ts` ändern und neu deployen (`npx supabase functions deploy push`).
+- `sw.js` zeigt die Mitteilung an und öffnet beim Tippen die passende Seite.
+- Um 8 Uhr deutscher Zeit ruft der Datenbank-Job `fragen-um-8` (pg_cron) die Funktion mit einem Geheimnis aus `push_schluessel.cron_geheimnis` auf; sie meldet alle Fragen, die vor heute für heute eingeplant wurden. Sofort testen: `select public.fragen_des_tages_melden(true);` im SQL Editor.
+
 ## Ideen für später
 
-- Push-Benachrichtigungen (Web Push mit Supabase Edge Function, auf dem iPhone nur für Homescreen-Apps)
 - Herzchen auf einzelne Antworten
 - Eigene Eher-Fragen vorschlagen
 <!-- AUTO:END -->

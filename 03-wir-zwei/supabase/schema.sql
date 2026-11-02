@@ -20,7 +20,7 @@ create table public.profile (
   id            uuid primary key references auth.users on delete cascade,
   paar_id       uuid references public.paare on delete set null,
   name          text not null check (char_length(name) between 1 and 30),
-  stimmung      text check (stimmung in ('arm', 'gut', 'platt', 'down', 'gestresst', 'stimme')),
+  stimmung      text check (stimmung in ('arm', 'gut', 'platt', 'down', 'gestresst', 'unproduktiv', 'abgefuckt', 'stimme')),
   stimmung_seit timestamptz
 );
 
@@ -249,3 +249,75 @@ revoke update, delete on public.fragen, public.antworten, public.eher_antworten,
 
 alter publication supabase_realtime add table
   public.profile, public.fragen, public.antworten, public.eher_antworten, public.gesten;
+
+-- ───────────────────────── Push-Mitteilungen ─────────────────────────
+-- Ein Eintrag pro Gerät, auf dem Mitteilungen eingeschaltet sind.
+
+create table public.push_abos (
+  endpoint    text primary key,
+  nutzer      uuid not null default auth.uid() references public.profile on delete cascade,
+  p256dh      text not null,
+  auth        text not null,
+  erstellt_am timestamptz not null default now()
+);
+create index on public.push_abos (nutzer);
+
+alter table public.push_abos enable row level security;
+revoke all on public.push_abos from anon, authenticated;
+grant select, insert, delete on public.push_abos to authenticated;
+
+create policy "eigene Geräte lesen" on public.push_abos
+  for select to authenticated using (nutzer = auth.uid());
+create policy "eigenes Gerät anmelden" on public.push_abos
+  for insert to authenticated with check (nutzer = auth.uid());
+create policy "eigenes Gerät abmelden" on public.push_abos
+  for delete to authenticated using (nutzer = auth.uid());
+
+-- Schlüsselpaar für Web Push (VAPID). Nur die Edge Function (service_role) kommt dran.
+-- Befüllen: einmal ein Schlüsselpaar erzeugen (z. B. `npx web-push generate-vapid-keys`) und
+--   insert into public.push_schluessel (oeffentlich, privat) values ('<öffentlich>', '<privat>');
+-- Den öffentlichen Schlüssel zusätzlich in js/konfig.js eintragen.
+create table public.push_schluessel (
+  id          int primary key default 1 check (id = 1),
+  oeffentlich text not null,
+  privat      text not null,
+  -- Geheimnis, mit dem sich der tägliche Job bei der Edge Function ausweist
+  cron_geheimnis text not null default encode(extensions.gen_random_bytes(24), 'hex')
+);
+alter table public.push_schluessel enable row level security;
+revoke all on public.push_schluessel from anon, authenticated;
+
+-- Die Edge Function „push“ arbeitet mit der Server-Rolle. Sie braucht genau diese Rechte.
+-- (Nötig, weil „Automatically expose new tables“ ausgeschaltet ist.)
+grant select on public.push_schluessel to service_role;
+grant select, delete on public.push_abos to service_role;
+grant select on public.profile, public.fragen to service_role;
+
+-- ───────────────────────── Fragen für morgen um 8 Uhr melden ─────────────────────────
+-- pg_cron rechnet in UTC. Der Job läuft um 6 und 7 Uhr UTC und sendet nur, wenn es in
+-- Berlin 8 Uhr ist (Sommerzeit: 6 Uhr UTC, Winterzeit: 7 Uhr UTC).
+-- <PROJEKT> und <ANON-SCHLÜSSEL> beim Einrichten ersetzen.
+
+create extension if not exists pg_net with schema extensions;
+create extension if not exists pg_cron;
+
+create or replace function public.fragen_des_tages_melden(p_immer boolean default false) returns bigint
+language plpgsql security definer set search_path = public, extensions as $$
+begin
+  if not p_immer and extract(hour from now() at time zone 'Europe/Berlin') <> 8 then
+    return null;
+  end if;
+  return net.http_post(
+    url := 'https://<PROJEKT>.supabase.co/functions/v1/push',
+    body := '{"art":"geplante-fragen"}'::jsonb,
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer <ANON-SCHLÜSSEL>',
+      'x-wir-zwei-cron', (select cron_geheimnis from public.push_schluessel where id = 1)),
+    timeout_milliseconds := 30000);
+end
+$$;
+revoke execute on function public.fragen_des_tages_melden(boolean) from public, anon, authenticated;
+
+select cron.schedule('fragen-um-8', '0 6,7 * * *', 'select public.fragen_des_tages_melden()');
+-- Zum Ausprobieren sofort auslösen: select public.fragen_des_tages_melden(true);

@@ -24,7 +24,16 @@ const z = {
   beschaeftigt: false,
   gesteGesendet: null,
   einstellungen: false,
+  pushAn: false,
+  pushKarteWeg: lokalLesen('wir-zwei-push-karte') === 'weg',
 };
+
+function lokalLesen(schluessel) {
+  try { return localStorage.getItem(schluessel); } catch { return null; }
+}
+function lokalSchreiben(schluessel, wert) {
+  try { localStorage.setItem(schluessel, wert); } catch { /* egal */ }
+}
 let quelle = null;
 let warteTimer = null;
 const merker = new Map(); // Eingaben überleben das Neuzeichnen
@@ -40,6 +49,7 @@ const S = {
   haken: (gr = 14, dick = 2.5) => `<svg width="${gr}" height="${gr}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${dick}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
   pfeil: () => '<svg class="pfeil" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>',
   zahnrad: () => '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
+  glocke: (gr = 20) => `<svg width="${gr}" height="${gr}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>`,
   funken: () => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>',
 };
 
@@ -76,6 +86,7 @@ async function statusPruefen() {
   if (z.phase === 'bereit') {
     await neuLaden();
     quelle.abonnieren(() => neuLaden(), gesteEmpfangen);
+    pushPruefen();
   } else if (z.phase === 'wartet') {
     z.paarCode = (await quelle.laden()).paarCode;
     // Warten, bis der Schatz den Code eingegeben hat.
@@ -104,6 +115,41 @@ async function neuLaden() {
     ladeAuftrag = null;
     erledigt();
   }
+}
+
+// ───────────────────────── Push-Mitteilungen ─────────────────────────
+// Auf dem iPhone nur möglich, wenn die App vom Home-Bildschirm aus geöffnet wurde (ab iOS 16.4).
+
+function pushZustand() {
+  if (!quelle || quelle.demo || !konfig.pushSchluessel) return 'unpassend';
+  const moeglich = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  if (!moeglich) return /iPhone|iPad|iPod/.test(navigator.userAgent) ? 'homescreen' : 'unpassend';
+  if (Notification.permission === 'denied') return 'blockiert';
+  return z.pushAn ? 'an' : 'aus';
+}
+
+// Beim Start nachsehen, ob dieses Gerät schon angemeldet ist, und das Abo auffrischen.
+async function pushPruefen() {
+  if (pushZustand() === 'unpassend' || pushZustand() === 'homescreen') return;
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const abo = await reg?.pushManager.getSubscription();
+    z.pushAn = Boolean(abo) && Notification.permission === 'granted';
+    if (z.pushAn) await quelle.pushAbonnieren(abo);
+    render();
+  } catch { /* ohne Mitteilungen weiter */ }
+}
+
+function schluesselBytes(text) {
+  const b64 = (text + '='.repeat((4 - (text.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Uint8Array.from(atob(b64), (zeichen) => zeichen.charCodeAt(0));
+}
+
+let stimmungTimer;
+function stimmungMelden() {
+  // Wer schnell mehrere Stimmungen durchtippt, schickt nur eine Mitteilung (die letzte).
+  clearTimeout(stimmungTimer);
+  stimmungTimer = setTimeout(() => quelle.benachrichtigen('stimmung'), 3000);
 }
 
 function gesteEmpfangen(art) {
@@ -386,8 +432,31 @@ function ansichtHeute(d) {
 
   const serie = serieBerechnen(d.eher, d.ich.id, p.id);
 
+  // Einmaliger, wegklickbarer Hinweis auf Mitteilungen
+  const push = pushZustand();
+  let pushKarte = '';
+  if (!z.pushKarteWeg && push === 'aus') {
+    pushKarte = `<section class="karte push-karte">
+      <div class="person-zeile"><span class="zeile-symbol rose">${S.glocke()}</span>
+        <div><div class="person-name">Mitteilungen einschalten?</div>
+        <p class="klein leise">Dann merkst du sofort, wenn ${esc(p.name)} dir eine Umarmung schickt.</p></div></div>
+      <div class="knopf-reihe">
+        <button class="knopf text" data-aktion="push-karte-weg">Später</button>
+        <button class="knopf haupt" data-aktion="push-an" ${aus()}>Einschalten</button>
+      </div>
+    </section>`;
+  } else if (!z.pushKarteWeg && push === 'homescreen') {
+    pushKarte = `<section class="karte push-karte">
+      <div class="person-zeile"><span class="zeile-symbol rose">${S.glocke()}</span>
+        <div><div class="person-name">Mitteilungen gibt es auf dem Home-Bildschirm</div>
+        <p class="klein leise">Tippe in Safari auf Teilen → „Zum Home-Bildschirm“ und öffne die App dann von dort.</p></div></div>
+      <button class="knopf text" data-aktion="push-karte-weg">Okay</button>
+    </section>`;
+  }
+
   return `
     ${kopf('Heute', tagLang(heute()), `<button class="rund-knopf" data-aktion="einstellungen" aria-label="Einstellungen">${S.zahnrad()}</button>`)}
+    ${pushKarte}
     ${partnerKarte}
     <div class="abschnitt-kopf"><h2>Wie fühlst du dich?</h2><span class="klein leise">Tippen zum Ändern</span></div>
     <div class="stimmungen">${stimmungen}</div>
@@ -602,12 +671,29 @@ function ansichtEinstellungen(d) {
         <input id="name-aendern" name="name" type="text" maxlength="30" required value="${esc(d.ich.name)}">
         <button class="knopf zweit" ${aus()}>Speichern</button>
       </form>
+      ${pushEinstellung(d)}
       ${quelle.demo
         ? `<div class="karte"><p class="klein leise">Im Demo-Modus spielt eine ausgedachte Partnerin mit. Trag in <code>js/konfig.js</code> deine Supabase-Daten ein, dann wird es echt.</p>
             <button class="knopf zweit" data-aktion="demo-zuruecksetzen">Demo zurücksetzen</button></div>`
         : `<div class="karte"><span class="karten-label">Euer Paar-Code</span><div class="code-gross" style="font-size: 28px">${esc(d.paarCode)}</div></div>
            <button class="knopf text" data-aktion="abmelden">Abmelden</button>`}
     </section>
+  </div>`;
+}
+
+function pushEinstellung(d) {
+  const zustand = pushZustand();
+  if (zustand === 'unpassend') return '';
+  const texte = {
+    an: [`Du bekommst eine Mitteilung, wenn ${esc(d.partner.name)} dir eine Umarmung schickt, die Stimmung ändert, eine Frage stellt, antwortet oder bei „Eher“ wählt.`, `<button class="knopf zweit" data-aktion="push-aus" ${aus()}>Auf diesem Gerät ausschalten</button>`],
+    aus: ['Auf diesem Gerät sind Mitteilungen aus.', `<button class="knopf haupt" data-aktion="push-an" ${aus()}>Mitteilungen einschalten</button>`],
+    blockiert: ['Mitteilungen sind für diese App blockiert. Erlaube sie in den iPhone-Einstellungen unter Mitteilungen → Wir zwei.', ''],
+    homescreen: ['Mitteilungen gehen nur, wenn du die App vom Home-Bildschirm öffnest: in Safari Teilen → „Zum Home-Bildschirm“.', ''],
+  }[zustand];
+  return `<div class="karte formular">
+    <span class="karten-label">Mitteilungen ${zustand === 'an' ? `<span class="status-gruen">${S.haken()} An</span>` : ''}</span>
+    <p class="klein leise">${texte[0]}</p>
+    ${texte[1]}
   </div>`;
 }
 
@@ -623,11 +709,13 @@ const aktionen = {
     vibrieren();
     if (wert === 'arm') herzRegen(6);
     await quelle.stimmungSetzen(wert);
+    stimmungMelden();
     await neuLaden();
   },
 
   async geste(wert) {
     await quelle.gesteSenden(wert);
+    quelle.benachrichtigen(wert);
     z.gesteGesendet = wert;
     vibrieren();
     if (wert === 'umarmung') herzRegen(8);
@@ -646,10 +734,44 @@ const aktionen = {
 
   async eher(wert) {
     await quelle.eherWaehlen(Number(wert));
+    quelle.benachrichtigen('eher');
     vibrieren();
     await neuLaden();
     const e = eherHeute(z.daten);
     if (e.ihre !== null && e.ihre === e.meine) herzRegen();
+  },
+
+  async 'push-an'() {
+    // Die Erlaubnis muss direkt beim Tippen angefragt werden (sonst lehnt iOS ab).
+    const erlaubnis = await Notification.requestPermission();
+    if (erlaubnis !== 'granted') {
+      zeigeHinweis('Mitteilungen wurden nicht erlaubt.');
+      return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const abo = (await reg.pushManager.getSubscription())
+      ?? await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: schluesselBytes(konfig.pushSchluessel) });
+    await quelle.pushAbonnieren(abo);
+    z.pushAn = true;
+    z.pushKarteWeg = true;
+    lokalSchreiben('wir-zwei-push-karte', 'weg');
+    zeigeHinweis('Mitteilungen sind an 🔔');
+  },
+
+  async 'push-aus'() {
+    const reg = await navigator.serviceWorker.ready;
+    const abo = await reg.pushManager.getSubscription();
+    if (abo) {
+      await quelle.pushAbmelden(abo.endpoint);
+      await abo.unsubscribe();
+    }
+    z.pushAn = false;
+    zeigeHinweis('Mitteilungen sind aus');
+  },
+
+  'push-karte-weg'() {
+    z.pushKarteWeg = true;
+    lokalSchreiben('wir-zwei-push-karte', 'weg');
   },
 
   einstellungen() { z.einstellungen = true; },
@@ -721,6 +843,7 @@ const formulare = {
   async antwort({ frage, text }) {
     if (!text.trim()) throw new Error('Schreib erst eine Antwort.');
     await quelle.antworten(frage, text.trim());
+    quelle.benachrichtigen('antwort');
     merker.delete(`antwort-${frage}`);
     vibrieren();
     await neuLaden();
@@ -730,6 +853,7 @@ const formulare = {
   async frage({ tag, text }) {
     if (text.trim().length < 3) throw new Error('Die Frage ist noch zu kurz.');
     await quelle.frageStellen(text.trim(), tag);
+    if (tag === heute()) quelle.benachrichtigen('frage'); // Fragen für morgen sind noch geheim
     merker.delete(`frage-${tag}`);
     await neuLaden();
     zeigeHinweis(tag === heute() ? 'Frage ist gestellt' : 'Frage für morgen ist eingeplant');
