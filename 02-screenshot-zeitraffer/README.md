@@ -1,13 +1,14 @@
 <!-- AUTO:START -->
 # 02 – Screenshot-Zeitraffer
 
-Ein Playwright-Skript (TypeScript) fotografiert jeden Tag um 12 Uhr deutscher Zeit drei Webseiten. Ein GitHub-Actions-Workflow committet die Bilder ins Repo – mit der Zeit entsteht daraus ein Zeitraffer.
+Ein Playwright-Skript (TypeScript) fotografiert jeden Tag um 12 Uhr deutscher Zeit vier Webseiten. Ein GitHub-Actions-Workflow committet die Bilder ins Repo – mit der Zeit entsteht daraus ein Zeitraffer.
 
 | Ordner | Seite |
 | --- | --- |
 | `screenshots/tagesschau/` | https://www.tagesschau.de |
 | `screenshots/spiegel/` | https://www.spiegel.de |
 | `screenshots/wikipedia/` | https://de.wikipedia.org |
+| `screenshots/heise/` | https://www.heise.de |
 
 Jedes Bild heißt `<JJJJ-MM-TT>.jpg` (Datum in deutscher Zeit), ist ein JPEG (Qualität 80) und zeigt genau das Browserfenster in 1280×800 – keine ganze Seite.
 

@@ -20,6 +20,12 @@ const SEITEN: Seite[] = [
     wegklicken: [/Einwilligen und weiter|Akzeptieren und weiter/i, /Dialog schließen/i],
   },
   { name: 'wikipedia', url: 'https://de.wikipedia.org' },
+  {
+    name: 'heise',
+    url: 'https://www.heise.de',
+    // Erst Cookie-Banner, danach eine heise+-Werbeleiste am unteren Rand mit ✕.
+    wegklicken: [/Zustimmen|Alle akzeptieren|Akzeptieren/i, /Footer schließen/i],
+  },
 ];
 
 const FENSTER = { width: 1280, height: 800 };
