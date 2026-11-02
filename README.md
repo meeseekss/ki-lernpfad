@@ -8,6 +8,7 @@ Mein persönlicher Lernpfad rund um Künstliche Intelligenz: Notizen, Übungen u
 | Nr. | Projekt | Beschreibung |
 | --- | --- | --- |
 | 01 | [philosophie-bot](01-philosophie-bot/) | Browser-Automatisierung mit Playwright (TypeScript) |
+| 02 | [screenshot-zeitraffer](02-screenshot-zeitraffer/) | Tägliche Screenshots per Playwright + GitHub Actions |
 
 ## Ziele
 

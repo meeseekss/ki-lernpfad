@@ -1,0 +1,79 @@
+name: Screenshot-Zeitraffer
+
+on:
+  schedule:
+    # GitHub rechnet in UTC. 12 Uhr deutscher Zeit ist im Sommer 10:00 UTC, im Winter 11:00 UTC.
+    # Beide Zeiten sind eingetragen; der Schritt "Zeit prüfen" lässt jeweils nur die passende laufen.
+    - cron: '0 10 * * *'
+    - cron: '0 11 * * *'
+  workflow_dispatch: # Knopf "Run workflow" im Actions-Tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: screenshot-zeitraffer
+  cancel-in-progress: false
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 02-screenshot-zeitraffer
+    steps:
+      - name: Zeit prüfen
+        id: zeit
+        working-directory: .
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+        run: |
+          # Welcher Cron ausgelöst hat, steht in github.event.schedule – das bleibt auch bei
+          # verspätetem Start eindeutig, anders als ein Vergleich mit der aktuellen Uhrzeit.
+          offset=$(TZ=Europe/Berlin date +%z)
+          laufen=false
+          if [ "$EREIGNIS" != "schedule" ]; then
+            laufen=true
+          elif [ "$CRON" = "0 10 * * *" ] && [ "$offset" = "+0200" ]; then
+            laufen=true   # Sommerzeit
+          elif [ "$CRON" = "0 11 * * *" ] && [ "$offset" = "+0100" ]; then
+            laufen=true   # Winterzeit
+          fi
+          echo "Ereignis=$EREIGNIS Cron='$CRON' Berlin-Offset=$offset → laufen=$laufen"
+          echo "laufen=$laufen" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.zeit.outputs.laufen == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.zeit.outputs.laufen == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: 02-screenshot-zeitraffer/package-lock.json
+
+      - name: Abhängigkeiten installieren
+        if: steps.zeit.outputs.laufen == 'true'
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Screenshots machen
+        if: steps.zeit.outputs.laufen == 'true'
+        run: npm run screenshots
+
+      # Läuft auch, wenn eine Seite fehlgeschlagen ist: die gelungenen Bilder werden trotzdem
+      # gesichert. Der Job bleibt rot, weil der Schritt davor fehlgeschlagen ist.
+      - name: Neue Bilder committen
+        if: ${{ !cancelled() && steps.zeit.outputs.laufen == 'true' }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add screenshots
+          if git diff --cached --quiet; then
+            echo "Keine neuen Bilder."
+            exit 0
+          fi
+          git commit -m "Screenshots vom $(TZ=Europe/Berlin date +%F)"
+          git push
