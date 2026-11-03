@@ -8,18 +8,24 @@ export function zufallsZug(brett, zufall) {
   return zuege[Math.floor(zufall() * zuege.length)];
 }
 
-// Bot 2: kürzester Weg zum Futter, aber nur über Züge, nach denen genug Platz bleibt
-export function strategieZug(brett) {
+// Bot 2: kürzester Weg zum Futter, aber nur über Züge, nach denen genug Platz bleibt.
+// beobachten (optional, nur Zuschau-Modus) erfährt, welche Felder er für den gewählten Zug als erreichbar zählt.
+export function strategieZug(brett, beobachten) {
   const zuege = sichereZuege(brett);
-  if (zuege.length === 0) return brett.richtung;
+  if (zuege.length === 0) {
+    beobachten?.({ erreichbar: new Set(), genug: false });
+    return brett.richtung;
+  }
 
   const laenge = brett.belegt.size + 1; // nach dem Fressen eins länger
   const bewertet = zuege.map((richtung) => {
     const kopf = ziel(brett.kopf, richtung);
     const belegt = new Set(brett.belegt).add(schluessel(kopf));
+    const erreichbar = erreichbareFelder(brett, kopf, belegt);
     return {
       richtung,
-      platz: platz(brett, kopf, belegt),
+      erreichbar,
+      platz: erreichbar.size,
       abstand: brett.futter ? abstand(brett, kopf, brett.futter, belegt) : Infinity,
     };
   });
@@ -29,6 +35,7 @@ export function strategieZug(brett) {
   const auswahl = genug.length > 0
     ? genug.sort((a, b) => a.abstand - b.abstand || b.platz - a.platz)
     : bewertet.sort((a, b) => b.platz - a.platz);
+  beobachten?.({ erreichbar: auswahl[0].erreichbar, genug: genug.length > 0 });
   return auswahl[0].richtung;
 }
 
@@ -36,8 +43,8 @@ function nachbarn(pos) {
   return Object.keys(RICHTUNGEN).map((richtung) => ziel(pos, richtung));
 }
 
-// Flutfüllung: wie viele Felder sind von start aus erreichbar (start mitgezählt)
-function platz(brett, start, belegt) {
+// Flutfüllung: Schlüssel aller Felder, die von start aus erreichbar sind (start mitgezählt)
+function erreichbareFelder(brett, start, belegt) {
   const gesehen = new Set([schluessel(start)]);
   const offen = [start];
   while (offen.length > 0) {
@@ -49,7 +56,7 @@ function platz(brett, start, belegt) {
       }
     }
   }
-  return gesehen.size;
+  return gesehen;
 }
 
 // Breitensuche: Länge des kürzesten Wegs von start nach zielPos, Infinity wenn keiner

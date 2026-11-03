@@ -11,6 +11,7 @@ npx playwright install chromium
 npm start       # http://localhost:4174
 npm test        # Playwright startet den Server selbst (webServer in der Config)
 npm run duell   # beide Bots spielen je 20 Runden, am Ende eine Tabelle
+SICHTBAR=1 SEED=7 npm run duell   # zuschauen: eine Runde, zwei Fenster nebeneinander
 ```
 
 ## Bot-Duell
@@ -25,6 +26,10 @@ npm run duell   # beide Bots spielen je 20 Runden, am Ende eine Tabelle
 Beide lesen das Brett nur über die `data-*`-Attribute der Seite und drücken Pfeiltasten. Die Reihenfolge der Körperteile steht nicht im DOM, deshalb gilt der ganze Körper inklusive Schwanz als Hindernis. Eine Umkehr bieten die Bots nie an, weil das Spiel sie ignoriert und geradeaus läuft.
 
 Ein Lauf (Stand jetzt): Zufall Ø 3,6 Punkte, Strategie Ø 55,6 Punkte, keine Runde erreicht das Schrittlimit. Dauer etwa 30 Sekunden.
+
+### Zuschauen
+
+Mit `SICHTBAR=1` spielt jeder Bot nur eine Runde, Seed über `SEED` (Standard 1). Der Browser ist sichtbar, jeder Schritt dauert 150 ms. Links spielt Zufall, rechts Strategie, jeweils in einem eigenen Chromium (Fensterposition und -größe sind Startargumente des Browsers). Beim Strategie-Bot sind die Felder eingefärbt, die er für seinen gewählten Zug bei der Platzprüfung als erreichbar zählt: **blau** heißt genug Platz, **orange** heißt kein Zug hatte genug Platz und er weicht in den größten Bereich aus. Farbe und Fenstertitel fügt das Skript zur Laufzeit ein (`addStyleTag`, Attribut `data-erreichbar`), Spiel und normales Duell bleiben unverändert. Nach der Tabelle bleiben die Fenster offen, bis man Enter drückt. Schließt man vorher ein Fenster, bricht das Duell mit einer Meldung ab.
 
 ## URL-Parameter
 
@@ -56,7 +61,7 @@ js/app.js             Zellen zeichnen, Tasten, Takt, URL-Parameter
 tests/spiel.spec.ts   Start-Test und Bot-Modus/Seed-Test
 bots/brett.mjs        Brett aus den data-Attributen lesen, sichere Züge
 bots/bots.mjs         Zufalls- und Strategie-Bot (Breitensuche, Flutfüllung)
-bots/duell.mjs        Server starten, beide Bots spielen lassen, Tabelle ausgeben
+bots/duell.mjs        Server starten, beide Bots spielen lassen, Tabelle ausgeben, Zuschau-Modus
 tools/server.mjs      Mini-Webserver ohne Abhängigkeiten (Port 4174)
 ```
 <!-- AUTO:END -->
