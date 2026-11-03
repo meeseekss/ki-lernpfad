@@ -9,6 +9,11 @@ test('Spiel startet mit Schlange, Futter und 0 Punkten', async ({ page }) => {
   await expect(page.locator('[data-testid^="zelle-"]')).toHaveCount(15 * 15);
   await expect(page.locator('[data-inhalt="kopf"]')).toHaveCount(1);
   await expect(page.locator('[data-inhalt="schlange"]')).toHaveCount(2);
+  // Reihenfolge der Körperteile: Kopf auf 7-4, Schwanz auf 7-2
+  await expect(page.getByTestId('zelle-7-4')).toHaveAttribute('data-index', '0');
+  await expect(page.getByTestId('zelle-7-3')).toHaveAttribute('data-index', '1');
+  await expect(page.getByTestId('zelle-7-2')).toHaveAttribute('data-index', '2');
+  await expect(page.locator('[data-index]')).toHaveCount(3);
   await expect(page.locator('[data-inhalt="futter"]')).toHaveCount(1);
   await expect(page.getByTestId('punkte')).toHaveText('0');
   await expect(page.getByTestId('game-over')).toBeHidden();

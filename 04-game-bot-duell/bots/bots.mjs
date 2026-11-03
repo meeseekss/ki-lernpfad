@@ -1,5 +1,5 @@
-// Die beiden Bots: bekommen das gelesene Brett und geben eine Richtung zurück.
-import { RICHTUNGEN, frei, schluessel, sichereZuege, ziel } from './brett.mjs';
+// Die Bots: bekommen das gelesene Brett und geben eine Richtung zurück.
+import { GEGENTEIL, RICHTUNGEN, frei, gleich, imFeld, schluessel, sichereZuege, ziel } from './brett.mjs';
 
 // Bot 1: irgendein Zug, der nicht sofort tödlich ist
 export function zufallsZug(brett, zufall) {
@@ -8,7 +8,48 @@ export function zufallsZug(brett, zufall) {
   return zuege[Math.floor(zufall() * zuege.length)];
 }
 
-// Bot 2: kürzester Weg zum Futter, aber nur über Züge, nach denen genug Platz bleibt.
+// Bot 3 („Strategie“): wie Bot 2, kennt aber über data-index die Reihenfolge des Körpers.
+// Schwanzfelder zählen als frei, sobald der Schwanz sie verlassen hat, bevor der Kopf ankommt.
+export function strategieMitSchwanzZug(brett, beobachten) {
+  const { koerper } = brett;
+  const schwanz = koerper[koerper.length - 1];
+  // Aufs Schwanzfeld darf er, wenn er dort nicht frisst: Dann rückt der Schwanz im selben Schritt weiter
+  const zuege = Object.keys(RICHTUNGEN)
+    .filter((richtung) => richtung !== GEGENTEIL[brett.richtung])
+    .filter((richtung) => {
+      const kopf = ziel(brett.kopf, richtung);
+      const frisst = brett.futter !== null && gleich(kopf, brett.futter);
+      return imFeld(brett, kopf) && (!brett.belegt.has(schluessel(kopf)) || (!frisst && gleich(kopf, schwanz)));
+    });
+  if (zuege.length === 0) {
+    beobachten?.({ erreichbar: new Set(), genug: false });
+    return brett.richtung;
+  }
+
+  const bewertet = zuege.map((richtung) => {
+    const kopf = ziel(brett.kopf, richtung);
+    const frisst = brett.futter !== null && gleich(kopf, brett.futter);
+    const neuerKoerper = [kopf, ...(frisst ? koerper : koerper.slice(0, -1))];
+    const wege = wegeMitSchwanz(brett, neuerKoerper);
+    return {
+      richtung,
+      laenge: neuerKoerper.length,
+      erreichbar: new Set(wege.keys()),
+      platz: wege.size,
+      abstand: brett.futter ? (wege.get(schluessel(brett.futter)) ?? Infinity) : Infinity,
+    };
+  });
+
+  const genug = bewertet.filter((zug) => zug.platz >= zug.laenge);
+  const auswahl = genug.length > 0
+    ? genug.sort((a, b) => a.abstand - b.abstand || b.platz - a.platz)
+    : bewertet.sort((a, b) => b.platz - a.platz);
+  beobachten?.({ erreichbar: auswahl[0].erreichbar, genug: genug.length > 0 });
+  return auswahl[0].richtung;
+}
+
+// Bot 2 („Strategie alt“): kürzester Weg zum Futter, aber nur über Züge, nach denen genug Platz bleibt.
+// Kennt die Reihenfolge des Körpers nicht und behandelt ihn komplett als Hindernis.
 // beobachten (optional, nur Zuschau-Modus) erfährt, welche Felder er für den gewählten Zug als erreichbar zählt.
 export function strategieZug(brett, beobachten) {
   const zuege = sichereZuege(brett);
@@ -57,6 +98,29 @@ function erreichbareFelder(brett, start, belegt) {
     }
   }
   return gesehen;
+}
+
+// Breitensuche vom Kopf (koerper[0]) aus, bei der Körperteile rechtzeitig frei werden:
+// Das Teil an Stelle j (Kopf = 0) ist nach koerper.length − j Schritten weg.
+// Ergebnis: Schlüssel → Schritte bis dorthin, für alle erreichbaren Felder (Start mit 0).
+// Frisst er unterwegs, bleibt der Schwanz länger liegen; das übersieht die Suche bewusst.
+function wegeMitSchwanz(brett, koerper) {
+  const freiNach = new Map(koerper.map((teil, j) => [schluessel(teil), koerper.length - j]));
+  const wege = new Map([[schluessel(koerper[0]), 0]]);
+  let ebene = [koerper[0]];
+  for (let schritte = 1; ebene.length > 0; schritte++) {
+    const naechste = [];
+    for (const pos of ebene) {
+      for (const nachbar of nachbarn(pos)) {
+        const k = schluessel(nachbar);
+        if (wege.has(k) || !imFeld(brett, nachbar) || (freiNach.get(k) ?? 0) > schritte) continue;
+        wege.set(k, schritte);
+        naechste.push(nachbar);
+      }
+    }
+    ebene = naechste;
+  }
+  return wege;
 }
 
 // Breitensuche: Länge des kürzesten Wegs von start nach zielPos, Infinity wenn keiner

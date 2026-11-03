@@ -7,14 +7,14 @@ export const RICHTUNGEN = {
   links: { z: 0, s: -1, taste: 'ArrowLeft' },
   rechts: { z: 0, s: 1, taste: 'ArrowRight' },
 };
-const GEGENTEIL = { hoch: 'runter', runter: 'hoch', links: 'rechts', rechts: 'links' };
+export const GEGENTEIL = { hoch: 'runter', runter: 'hoch', links: 'rechts', rechts: 'links' };
 
 export async function brettLesen(page) {
   const roh = await page.evaluate(() => {
     const feld = document.querySelector('[data-testid="spielfeld"]');
     const zellen = [...feld.querySelectorAll('[data-testid^="zelle-"]')]
       .filter((zelle) => zelle.dataset.inhalt !== 'leer')
-      .map((zelle) => [zelle.dataset.testid, zelle.dataset.inhalt]);
+      .map((zelle) => [zelle.dataset.testid, zelle.dataset.inhalt, zelle.dataset.index]);
     return {
       zeilen: Number(feld.dataset.zeilen),
       spalten: Number(feld.dataset.spalten),
@@ -25,15 +25,16 @@ export async function brettLesen(page) {
     };
   });
 
-  // Die Reihenfolge der Körperteile steht nicht im DOM, also ist der ganze Körper (mit Kopf) belegt
-  const brett = { ...roh, kopf: null, futter: null, belegt: new Set() };
+  // belegt: alle Körperfelder (mit Kopf); koerper: dieselben Felder in Reihenfolge aus data-index, Kopf zuerst
+  const brett = { ...roh, kopf: null, futter: null, belegt: new Set(), koerper: [] };
   delete brett.zellen;
-  for (const [testid, inhalt] of roh.zellen) {
+  for (const [testid, inhalt, index] of roh.zellen) {
     const [, z, s] = testid.split('-').map(Number);
     if (inhalt === 'futter') {
       brett.futter = { z, s };
     } else {
       brett.belegt.add(schluessel({ z, s }));
+      brett.koerper[Number(index)] = { z, s };
       if (inhalt === 'kopf') brett.kopf = { z, s };
     }
   }
@@ -47,8 +48,14 @@ export function ziel(pos, richtung) {
   return { z: pos.z + d.z, s: pos.s + d.s };
 }
 
+export const gleich = (a, b) => a.z === b.z && a.s === b.s;
+
+export function imFeld(brett, pos) {
+  return pos.z >= 0 && pos.z < brett.zeilen && pos.s >= 0 && pos.s < brett.spalten;
+}
+
 export function frei(brett, pos, belegt = brett.belegt) {
-  return pos.z >= 0 && pos.z < brett.zeilen && pos.s >= 0 && pos.s < brett.spalten && !belegt.has(schluessel(pos));
+  return imFeld(brett, pos) && !belegt.has(schluessel(pos));
 }
 
 // Züge, die nicht sofort tödlich sind. Die Umkehr fällt weg: Das Spiel ignoriert sie und läuft geradeaus.

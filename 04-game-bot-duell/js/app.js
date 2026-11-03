@@ -34,17 +34,19 @@ function zellenBauen() {
   }
 }
 
-function inhaltVon(position) {
-  if (gleich(zustand.schlange[0], position)) return 'kopf';
-  if (zustand.schlange.some((teil) => gleich(teil, position))) return 'schlange';
-  if (zustand.futter && gleich(zustand.futter, position)) return 'futter';
-  return 'leer';
-}
-
 function zeichnen() {
+  // Position → Stelle in der Schlange (0 = Kopf, länge − 1 = Schwanz), steht als data-index an der Zelle
+  const stelle = new Map(zustand.schlange.map((teil, i) => [`${teil.z}-${teil.s}`, i]));
   for (const zelle of feld.children) {
     const [, z, s] = zelle.dataset.testid.split('-').map(Number);
-    zelle.dataset.inhalt = inhaltVon({ z, s });
+    const i = stelle.get(`${z}-${s}`);
+    if (i === undefined) {
+      zelle.dataset.inhalt = zustand.futter && gleich(zustand.futter, { z, s }) ? 'futter' : 'leer';
+      delete zelle.dataset.index;
+    } else {
+      zelle.dataset.inhalt = i === 0 ? 'kopf' : 'schlange';
+      zelle.dataset.index = i;
+    }
   }
   feld.dataset.richtung = zustand.richtung;
   punkteAnzeige.textContent = zustand.punkte;

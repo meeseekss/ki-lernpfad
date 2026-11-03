@@ -1,7 +1,7 @@
 <!-- AUTO:START -->
 # 04 · Game-Bot-Duell
 
-Snake im Browser, als Raster aus Zellen (kein Canvas). Zwei Playwright-Bots spielen im Bot-Modus dagegen und werden unter gleichen Bedingungen (gleiche Seeds) verglichen.
+Snake im Browser, als Raster aus Zellen (kein Canvas). Drei Playwright-Bots spielen im Bot-Modus dagegen und werden unter gleichen Bedingungen (gleiche Seeds) verglichen.
 
 ## Starten
 
@@ -10,26 +10,27 @@ npm install
 npx playwright install chromium
 npm start       # http://localhost:4174
 npm test        # Playwright startet den Server selbst (webServer in der Config)
-npm run duell   # beide Bots spielen je 20 Runden, am Ende eine Tabelle
-SICHTBAR=1 SEED=7 npm run duell   # zuschauen: eine Runde, zwei Fenster nebeneinander
+npm run duell   # alle drei Bots spielen je 20 Runden, am Ende eine Tabelle
+SICHTBAR=1 SEED=7 npm run duell   # zuschauen: eine Runde, drei Fenster nebeneinander
 ```
 
 ## Bot-Duell
 
-`npm run duell` startet den Server selbst (oder nutzt einen laufenden auf Port 4174) und öffnet einen unsichtbaren Chromium mit je einer Seite pro Bot. Beide spielen gleichzeitig die Seeds 1 bis 20, höchstens 2000 Schritte pro Runde. Die Tabelle zeigt die Punkte pro Seed und den Durchschnitt. Ein `*` heißt: Die Runde wurde am Schrittlimit abgebrochen, der Bot lebte noch.
+`npm run duell` startet den Server selbst (oder nutzt einen laufenden auf Port 4174) und öffnet einen unsichtbaren Chromium mit je einer Seite pro Bot. Alle spielen gleichzeitig die Seeds 1 bis 20, höchstens 2000 Schritte pro Runde. Die Tabelle zeigt die Punkte pro Seed und den Durchschnitt. Ein `*` heißt: Die Runde wurde am Schrittlimit abgebrochen, der Bot lebte noch.
 
 | Bot | Vorgehen |
 | --- | --- |
 | **Zufall** | Wählt zufällig eine Richtung, die nicht sofort in Wand oder Körper führt. Würfelt mit dem Seed der Runde, damit Läufe wiederholbar sind. |
-| **Strategie** | Nimmt den kürzesten Weg zum Futter (Breitensuche, läuft also um den Körper herum). Vor jedem Zug zählt eine Flutfüllung, wie viele Felder danach noch erreichbar sind. Ist das weniger als die Schlangenlänge, scheidet der Zug aus. Bleibt keiner übrig, geht er dorthin, wo am meisten Platz ist. |
+| **Strategie alt** | Nimmt den kürzesten Weg zum Futter (Breitensuche, läuft also um den Körper herum). Vor jedem Zug zählt eine Flutfüllung, wie viele Felder danach noch erreichbar sind. Ist das weniger als die Schlangenlänge, scheidet der Zug aus. Bleibt keiner übrig, geht er dorthin, wo am meisten Platz ist. Ignoriert `data-index` und behandelt den ganzen Körper inklusive Schwanz als Hindernis. |
+| **Strategie** | Wie „Strategie alt“, kennt aber über `data-index` die Reihenfolge des Körpers. Eine einzige Breitensuche liefert Platz und Weg zum Futter, und Körperteile zählen darin als frei, sobald sie weitergerückt sind, bevor der Kopf ankommt (Teil an Stelle j ist nach `länge − j` Schritten weg). Er darf auch direkt aufs Schwanzfeld ziehen, wenn er dort nicht frisst. |
 
-Beide lesen das Brett nur über die `data-*`-Attribute der Seite und drücken Pfeiltasten. Die Reihenfolge der Körperteile steht nicht im DOM, deshalb gilt der ganze Körper inklusive Schwanz als Hindernis. Eine Umkehr bieten die Bots nie an, weil das Spiel sie ignoriert und geradeaus läuft.
+Alle lesen das Brett nur über die `data-*`-Attribute der Seite und drücken Pfeiltasten. Eine Umkehr bieten die Bots nie an, weil das Spiel sie ignoriert und geradeaus läuft.
 
-Ein Lauf (Stand jetzt): Zufall Ø 3,6 Punkte, Strategie Ø 55,6 Punkte, keine Runde erreicht das Schrittlimit. Dauer etwa 30 Sekunden.
+Ein Lauf (Stand jetzt): Zufall Ø 3,6, Strategie alt Ø 55,6, Strategie Ø 75,0 Punkte. „Strategie“ stirbt deutlich seltener und erreicht in 8 von 20 Runden das Schrittlimit: Dann läuft er sicher seinem Schwanz hinterher, findet aber keinen Weg zum Futter, der genug Platz lässt. Dauer etwa 70 Sekunden.
 
 ### Zuschauen
 
-Mit `SICHTBAR=1` spielt jeder Bot nur eine Runde, Seed über `SEED` (Standard 1). Der Browser ist sichtbar, jeder Schritt dauert 150 ms. Links spielt Zufall, rechts Strategie, jeweils in einem eigenen Chromium (Fensterposition und -größe sind Startargumente des Browsers). Beim Strategie-Bot sind die Felder eingefärbt, die er für seinen gewählten Zug bei der Platzprüfung als erreichbar zählt: **blau** heißt genug Platz, **orange** heißt kein Zug hatte genug Platz und er weicht in den größten Bereich aus. Farbe und Fenstertitel fügt das Skript zur Laufzeit ein (`addStyleTag`, Attribut `data-erreichbar`), Spiel und normales Duell bleiben unverändert. Nach der Tabelle bleiben die Fenster offen, bis man Enter drückt. Schließt man vorher ein Fenster, bricht das Duell mit einer Meldung ab.
+Mit `SICHTBAR=1` spielt jeder Bot nur eine Runde, Seed über `SEED` (Standard 1). Der Browser ist sichtbar, jeder Schritt dauert 150 ms. Von links nach rechts spielen Zufall, Strategie alt und Strategie, jeweils in einem eigenen Chromium (Fensterposition und -größe sind Startargumente des Browsers). Bei beiden Strategie-Bots sind die Felder eingefärbt, die sie für ihren gewählten Zug bei der Platzprüfung als erreichbar zählen (beim neuen also auch Körperfelder, die rechtzeitig frei werden): **blau** heißt genug Platz, **orange** heißt kein Zug hatte genug Platz und er weicht in den größten Bereich aus. Farbe und Fenstertitel fügt das Skript zur Laufzeit ein (`addStyleTag`, Attribut `data-erreichbar`), Spiel und normales Duell bleiben unverändert. Nach der Tabelle bleiben die Fenster offen, bis man Enter drückt. Schließt man vorher ein Fenster, bricht das Duell mit einer Meldung ab.
 
 ## URL-Parameter
 
@@ -43,7 +44,7 @@ Mit `SICHTBAR=1` spielt jeder Bot nur eine Runde, Seed über `SEED` (Standard 1)
 | Selektor | Inhalt |
 | --- | --- |
 | `[data-testid="spielfeld"]` | `data-zeilen`, `data-spalten` (15 × 15), `data-modus` (`bot`/`echtzeit`), `data-richtung` (zuletzt gelaufen) |
-| `[data-testid="zelle-<zeile>-<spalte>"]` | `data-inhalt` = `kopf`, `schlange`, `futter` oder `leer` (Zählung ab 0, oben links) |
+| `[data-testid="zelle-<zeile>-<spalte>"]` | `data-inhalt` = `kopf`, `schlange`, `futter` oder `leer` (Zählung ab 0, oben links). Nur auf Schlangenfeldern zusätzlich `data-index` = Stelle im Körper (0 = Kopf, Länge − 1 = Schwanz) |
 | `[data-testid="punkte"]` | Punktestand als Text |
 | `[data-testid="game-over"]` | Sichtbar, sobald das Spiel vorbei ist |
 | `[data-testid="seed"]` | Verwendeter Seed |
@@ -59,8 +60,8 @@ style.css             Gestaltung (Hell/Dunkel)
 js/spiel.js           Regeln ohne DOM: Zufall mit Seed (Mulberry32), Schritt, Kollision, Futter
 js/app.js             Zellen zeichnen, Tasten, Takt, URL-Parameter
 tests/spiel.spec.ts   Start-Test und Bot-Modus/Seed-Test
-bots/brett.mjs        Brett aus den data-Attributen lesen, sichere Züge
-bots/bots.mjs         Zufalls- und Strategie-Bot (Breitensuche, Flutfüllung)
+bots/brett.mjs        Brett aus den data-Attributen lesen (inkl. Körperreihenfolge), sichere Züge
+bots/bots.mjs         Zufalls-Bot, Strategie alt (Breitensuche, Flutfüllung), Strategie (Breitensuche mit frei werdendem Schwanz)
 bots/duell.mjs        Server starten, beide Bots spielen lassen, Tabelle ausgeben, Zuschau-Modus
 tools/server.mjs      Mini-Webserver ohne Abhängigkeiten (Port 4174)
 ```

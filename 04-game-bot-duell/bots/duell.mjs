@@ -1,18 +1,18 @@
 // Duell: beide Bots spielen Snake im Bot-Modus mit den Seeds 1–20. Start: npm run duell
-// Zuschauen: SICHTBAR=1 [SEED=5] npm run duell → eine Runde, zwei sichtbare Fenster, 150 ms pro Schritt
+// Zuschauen: SICHTBAR=1 [SEED=5] npm run duell → eine Runde, ein sichtbares Fenster pro Bot, 150 ms pro Schritt
 import { chromium } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { zufallMitSeed } from '../js/spiel.js';
 import { brettLesen, RICHTUNGEN } from './brett.mjs';
-import { strategieZug, zufallsZug } from './bots.mjs';
+import { strategieMitSchwanzZug, strategieZug, zufallsZug } from './bots.mjs';
 
 const ADRESSE = 'http://localhost:4174';
 const MAX_SCHRITTE = 2000;
 const SICHTBAR = process.env.SICHTBAR === '1';
 const PAUSE_MS = 150;
-const FENSTER = { breite: 640, hoehe: 800 };
+const FENSTER = { breite: 520, hoehe: 760 }; // drei nebeneinander passen auf einen 1600 px breiten Bildschirm
 
 function seedsBestimmen() {
   if (!SICHTBAR) return Array.from({ length: 20 }, (_, i) => i + 1);
@@ -22,13 +22,15 @@ function seedsBestimmen() {
 }
 const SEEDS = seedsBestimmen();
 
-// neu(seed, beobachten) liefert pro Runde eine Zugfunktion; der Zufallsbot würfelt mit dem Seed, damit Läufe wiederholbar sind
+// neu(seed, beobachten) liefert pro Runde eine Zugfunktion; der Zufallsbot würfelt mit dem Seed, damit Läufe wiederholbar sind.
+// Reihenfolge = Spalten der Tabelle und Fenster von links nach rechts.
 const BOTS = [
   { name: 'Zufall', neu: (seed) => { const zufall = zufallMitSeed(seed); return (brett) => zufallsZug(brett, zufall); } },
-  { name: 'Strategie', neu: (seed, beobachten) => (brett) => strategieZug(brett, beobachten) },
+  { name: 'Strategie alt', neu: (seed, beobachten) => (brett) => strategieZug(brett, beobachten) },
+  { name: 'Strategie', neu: (seed, beobachten) => (brett) => strategieMitSchwanzZug(brett, beobachten) },
 ];
 
-// Nur im Zuschau-Modus: Felder, die der Strategie-Bot als erreichbar zählt (blau = genug Platz, orange = zu eng)
+// Nur im Zuschau-Modus: Felder, die die Strategie-Bots als erreichbar zählen (blau = genug Platz, orange = zu eng)
 const ZUSCHAU_STIL = `
   [data-erreichbar="genug"] { box-shadow: inset 0 0 0 40px rgb(60 130 255 / 0.35); }
   [data-erreichbar="eng"] { box-shadow: inset 0 0 0 40px rgb(255 140 0 / 0.5); }
@@ -101,7 +103,7 @@ async function runde(page, bot, seed) {
   return { punkte: brett.punkte, schritte, limit: !brett.vorbei };
 }
 
-// Beide Bots spielen gleichzeitig, jeder auf seiner Seite
+// Alle Bots spielen gleichzeitig, jeder auf seiner Seite
 async function botSpielen(page, bot) {
   const ergebnisse = [];
   for (const seed of SEEDS) {
