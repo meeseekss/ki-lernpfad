@@ -57,7 +57,7 @@ npx playwright install chromium
 npm test
 ```
 
-Neun Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmung, Antwort deckt auf und ist fest, eigene Frage stellen, Eher-Wahl ist fest, Archiv, Foto aufnehmen/posten/tauschen, Kamera abbrechen, Zeile „Seit … zusammen“. Die Kamera ist in den Tests eine Testkamera von Chromium (grünes Bild).
+Zehn Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmung, Antwort deckt auf und ist fest, eigene Frage stellen, Eher-Wahl ist fest, Archiv, Foto aufnehmen/posten/tauschen, Kamera abbrechen, Zeile „Seit … zusammen“, Sicherheitsregeln (CSP). Die Kamera ist in den Tests eine Testkamera von Chromium (grünes Bild).
 
 ## Echt machen (einmalig)
 
@@ -82,6 +82,15 @@ Neun Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmung
 - Bilder werden auf 3:4 zugeschnitten (1080×1440 und 600×800, JPEG) und in den privaten Bucket `fotos` geladen; der Browser bekommt Links, die eine Stunde gelten.
 - Die Datenbank erlaubt Posten nur, wenn beide Bilder da sind, und danach kein Ersetzen mehr.
 - Job `fotos-aufraeumen` läuft stündlich und löscht über die Edge Function `aufraeumen` alles vor heute (auch nie gepostete Reste).
+
+## Sicherheit
+
+- **Zugriffsregeln in der Datenbank** (`supabase/schema.sql`): Ohne Anmeldung gibt es nichts, mit Anmeldung nur das eigene Paar. Änderbar sind nur einzelne Spalten (Name, Stimmung, „Zusammen seit“).
+- **Kein Code von fremden Servern:** supabase-js liegt als eine Datei in `js/vendor/` (Version 2.45.4, wie sie erzeugt wurde, steht im Kopf der Datei). Eine Content-Security-Policy in `index.html` erlaubt nur eigene Skripte und Verbindungen zur eigenen Supabase. Neue Supabase-URL → auch dort eintragen.
+- **Fotos:** privat, Links gelten eine Stunde, der Partner kommt erst nach dem Posten an die Bilder, um Mitternacht ist alles weg. Ohne Metadaten (GPS), weil die App sie über ein Canvas neu erzeugt.
+- **Push-Inhalte** sind für das Gerät verschlüsselt und enthalten nur Name und einen festen Satz.
+- **Dashboard:** Wenn beide registriert sind, unter Authentication „Allow new users to sign up“ ausschalten. Das Supabase-Konto mit Zwei-Faktor-Anmeldung schützen – wer dort hineinkommt, sieht alles.
+- **Grenzen:** Keine Ende-zu-Ende-Verschlüsselung (Projekt-Inhaber und Supabase könnten mitlesen). Fragen und Antworten lassen sich nicht löschen.
 
 ## Ideen für später
 

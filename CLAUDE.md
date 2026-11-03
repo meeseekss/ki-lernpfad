@@ -69,6 +69,7 @@ npm test     # Playwright, startet den Server selbst, testet im Demo-Modus (iPho
 - „Heute“ ist immer der Tag in Europe/Berlin (`heute()` in `js/hilfen.js` und `public.heute()` in SQL).
 - Die Eher-Frage des Tages ergibt sich nur aus dem Datum (`eherFrageFuer`); Fragen in `js/inhalte.js` nur hinten anhängen, sonst verschiebt sich die Zuordnung.
 - Nutzertext immer über `esc()` ins HTML.
+- Sicherheit: supabase-js liegt gebündelt in `js/vendor/` (kein CDN), `index.html` hat eine CSP (`script-src 'self'`, Verbindungen nur zur Supabase-URL). Neue externe Quellen dort freigeben; neue Supabase-URL auch dort eintragen. Bei neuer supabase-js-Version muss der Speicherschlüssel `sb-<projekt>-auth-token` gleich bleiben, sonst sind alle abgemeldet.
 - Neue Dateien, die offline verfügbar sein sollen, in `GRUNDGERUEST` in `sw.js` eintragen und `SPEICHER` hochzählen.
 - Veröffentlichung: `.github/workflows/wir-zwei-pages.yml` (GitHub Pages, nur bei Änderungen in `03-wir-zwei/`).
 - „Seit … zusammen“: `zusammenSeit()` in `js/hilfen.js` (Jahre/Monate/Tage, besondere Tage), Datum in `paare.zusammen_seit`.

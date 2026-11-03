@@ -110,3 +110,16 @@ test('Zeile „Seit … zusammen“ unter Heute und Datum ändern', async ({ pag
   await page.locator('form[data-form="zusammen"]').getByRole('button', { name: 'Speichern' }).click();
   await expect(page.getByText('Heute ist euer erster gemeinsamer Tag 💞')).toBeVisible();
 });
+
+test('Sicherheitsregeln (CSP): Supabase kommt aus dem eigenen Repo, fremde Skripte sind gesperrt', async ({ page }) => {
+  const verstoesse = await page.evaluate(async () => {
+    const liste: string[] = [];
+    document.addEventListener('securitypolicyviolation', (ev) => liste.push(ev.violatedDirective));
+    const modul = await import('./js/vendor/supabase-2.45.4.js');
+    if (typeof modul.createClient !== 'function') liste.push('createClient fehlt');
+    // Ein fremdes Skript muss geblockt werden
+    await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm').catch(() => {});
+    return liste;
+  });
+  expect(verstoesse).toEqual(['script-src-elem']);
+});

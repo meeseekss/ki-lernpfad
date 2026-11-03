@@ -2,8 +2,8 @@
 
 import { heute, tagPlus } from './hilfen.js';
 
-// Feste Version, damit sich nichts unbemerkt ändert.
-const SUPABASE_MODUL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+// Feste Version, im eigenen Repo statt vom CDN: So kann kein fremder Server Code in die App schieben.
+const SUPABASE_MODUL = './vendor/supabase-2.45.4.js';
 
 function pruefe({ data, error }) {
   if (error) throw new Error(uebersetzeFehler(error.message));

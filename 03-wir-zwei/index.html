@@ -2,6 +2,9 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
+  <!-- Content Security Policy: Nur eigene Skripte; Verbindungen nur zur eigenen Supabase.
+       Bei neuer Supabase-URL in js/konfig.js auch hier ändern. Inline-Styles nutzt die App selbst. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://omrlivcaunuhfsclnvim.supabase.co; media-src 'self' blob:; connect-src 'self' https://omrlivcaunuhfsclnvim.supabase.co wss://omrlivcaunuhfsclnvim.supabase.co; worker-src 'self'; manifest-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Wir zwei</title>
   <meta name="description" content="Eure kleine App für jeden Tag: Stimmung teilen, Frage des Tages, Was würdest du eher?">

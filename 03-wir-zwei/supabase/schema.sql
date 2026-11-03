@@ -430,3 +430,60 @@ create policy "eigenes Paar ändern" on public.paare
   for update to authenticated using (id = public.mein_paar()) with check (id = public.mein_paar());
 
 alter publication supabase_realtime add table public.paare;
+
+-- ───────────────────────── Sicherheit nachgeschärft ─────────────────────────
+-- Kann man in einer bestehenden Datenbank allein ausführen; Anmeldungen und Daten bleiben.
+
+-- Einladungscode aus kryptografischem Zufall statt random(). Bytes ab 248 werden verworfen,
+-- damit jedes der 31 Zeichen gleich wahrscheinlich ist (248 = 8 · 31).
+create or replace function public.paar_erstellen(p_name text) returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  v_code text;
+  v_paar uuid;
+  v_byte int;
+  v_zeichen constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; -- ohne 0/O/1/I/L
+begin
+  if auth.uid() is null then
+    raise exception 'Nicht angemeldet';
+  end if;
+  if exists (select 1 from profile where id = auth.uid() and paar_id is not null) then
+    raise exception 'Du bist schon in einem Paar';
+  end if;
+  loop
+    v_code := '';
+    while length(v_code) < 6 loop
+      v_byte := get_byte(extensions.gen_random_bytes(1), 0);
+      if v_byte < 248 then
+        v_code := v_code || substr(v_zeichen, 1 + v_byte % 31, 1);
+      end if;
+    end loop;
+    exit when not exists (select 1 from paare where code = v_code);
+  end loop;
+  insert into paare (code) values (v_code) returning id into v_paar;
+  insert into profile (id, paar_id, name) values (auth.uid(), v_paar, trim(p_name))
+    on conflict (id) do update set paar_id = excluded.paar_id, name = excluded.name;
+  return v_code;
+end
+$$;
+revoke execute on function public.paar_erstellen(text) from public, anon;
+grant execute on function public.paar_erstellen(text) to authenticated;
+
+-- Fotos: eigene Bilder immer, die des Partners erst, wenn er sie wirklich gepostet hat
+-- (vorher könnte man hochgeladene, aber verworfene Bilder über die API abrufen).
+drop policy "Fotos im Paar heute laden" on storage.objects;
+create policy "Fotos im Paar heute laden" on storage.objects
+  for select to authenticated
+  using (
+    bucket_id = 'fotos'
+    and (storage.foldername(name))[1] = public.mein_paar()::text
+    and (storage.foldername(name))[2] = public.heute()::text
+    and (
+      storage.filename(name) in (auth.uid()::text || '-hinten.jpg', auth.uid()::text || '-vorne.jpg')
+      or exists (
+        select 1 from public.fotos f
+        where f.paar_id = public.mein_paar() and f.tag = public.heute()
+          and storage.filename(name) in (f.autor::text || '-hinten.jpg', f.autor::text || '-vorne.jpg')
+      )
+    )
+  );
