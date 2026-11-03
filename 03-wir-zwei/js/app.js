@@ -761,7 +761,9 @@ function ansichtEinstellungen(d) {
       </form>
       <form class="karte formular" data-form="zusammen">
         <label for="zusammen-seit">Zusammen seit</label>
-        <input id="zusammen-seit" name="datum" type="date" data-merken max="${heute()}" value="${esc(d.zusammenSeit ?? '')}">
+        <div class="datum-feld">
+          <input id="zusammen-seit" name="datum" type="date" data-merken max="${heute()}" value="${esc(d.zusammenSeit ?? '')}">
+        </div>
         <button class="knopf zweit" ${aus()}>Speichern</button>
       </form>
       ${pushEinstellung(d)}

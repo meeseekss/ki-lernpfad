@@ -2,7 +2,7 @@
 // Strategie „erst Netz, dann Zwischenspeicher“: Neue Versionen kommen sofort an,
 // offline wird die zuletzt geladene Version gezeigt.
 
-const SPEICHER = 'wir-zwei-v3';
+const SPEICHER = 'wir-zwei-v4';
 const GRUNDGERUEST = [
   './',
   './index.html',
@@ -67,7 +67,9 @@ self.addEventListener('fetch', (ev) => {
   // Nur eigene Dateien; Supabase und CDN laufen ungestört am Service Worker vorbei.
   if (anfrage.method !== 'GET' || new URL(anfrage.url).origin !== self.location.origin) return;
   ev.respondWith(
-    fetch(anfrage)
+    // cache: 'no-cache' fragt immer beim Server nach, ob es eine neue Version gibt
+    // (sonst liefert der Browser bis zu 10 Minuten lang die alte Datei von GitHub Pages).
+    fetch(anfrage.url, { cache: 'no-cache', credentials: 'same-origin' })
       .then((antwort) => {
         const kopie = antwort.clone();
         caches.open(SPEICHER).then((c) => c.put(anfrage, kopie));
