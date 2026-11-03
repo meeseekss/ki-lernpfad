@@ -84,7 +84,7 @@ export async function erstelleSupabaseDaten(url, schluessel) {
       const h = heute();
       const [profile, paare, fragen, antworten, eher, partnerStatus, fotoZeilen] = await Promise.all([
         sb.from('profile').select('id, name, stimmung, stimmung_seit'),
-        sb.from('paare').select('code'),
+        sb.from('paare').select('code, zusammen_seit'),
         sb.from('fragen').select('id, autor, tag, text').gte('tag', tagPlus(h, -60)).order('tag', { ascending: false }),
         sb.from('antworten').select('frage_id, autor, text, erstellt_am').gte('erstellt_am', `${tagPlus(h, -62)}T00:00:00Z`),
         sb.from('eher_antworten').select('tag, autor, wahl').gte('tag', tagPlus(h, -120)),
@@ -104,6 +104,7 @@ export async function erstelleSupabaseDaten(url, schluessel) {
         ich: person(profile.find((p) => p.id === ichId)),
         partner: person(profile.find((p) => p.id !== ichId)) ?? null,
         paarCode: paare[0]?.code ?? '',
+        zusammenSeit: paare[0]?.zusammen_seit ?? null,
         fragen,
         antworten: antworten.map((a) => ({ frageId: a.frage_id, autor: a.autor, text: a.text })),
         partnerHatBeantwortet: partnerStatus.fragen ?? [],
@@ -129,6 +130,11 @@ export async function erstelleSupabaseDaten(url, schluessel) {
       pruefe(await sb.from('profile')
         .update({ stimmung: schluessel, stimmung_seit: new Date().toISOString() })
         .eq('id', ichId));
+    },
+
+    async zusammenSeitSetzen(datum) {
+      const paarId = pruefe(await sb.rpc('mein_paar'));
+      pruefe(await sb.from('paare').update({ zusammen_seit: datum || null }).eq('id', paarId));
     },
 
     async nameSetzen(name) {
@@ -177,7 +183,7 @@ export async function erstelleSupabaseDaten(url, schluessel) {
     abonnieren(beiAenderung, beiGeste) {
       if (kanal) sb.removeChannel(kanal);
       kanal = sb.channel('wir-zwei');
-      for (const tabelle of ['profile', 'fragen', 'antworten', 'eher_antworten', 'fotos']) {
+      for (const tabelle of ['profile', 'paare', 'fragen', 'antworten', 'eher_antworten', 'fotos']) {
         kanal.on('postgres_changes', { event: '*', schema: 'public', table: tabelle }, () => beiAenderung());
       }
       kanal.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gesten' }, ({ new: geste }) => {

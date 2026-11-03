@@ -100,3 +100,13 @@ test('Foto des Tages: Abbrechen schließt die Kamera ohne zu posten', async ({ p
   await expect(page.getByRole('dialog', { name: 'Foto des Tages aufnehmen' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Foto machen' })).toBeVisible();
 });
+
+test('Zeile „Seit … zusammen“ unter Heute und Datum ändern', async ({ page }) => {
+  await expect(page.getByText(/^Seit .* zusammen$/)).toBeVisible();
+  await page.getByRole('button', { name: 'Einstellungen' }).click();
+  // Heute als Datum → „erster gemeinsamer Tag“
+  const heute = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' }).format(new Date());
+  await page.getByLabel('Zusammen seit').fill(heute);
+  await page.locator('form[data-form="zusammen"]').getByRole('button', { name: 'Speichern' }).click();
+  await expect(page.getByText('Heute ist euer erster gemeinsamer Tag 💞')).toBeVisible();
+});

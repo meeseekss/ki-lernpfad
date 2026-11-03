@@ -4,7 +4,7 @@ import { konfig } from './konfig.js';
 import { STIMMUNGEN, stimmung, FRAGEN_IDEEN } from './inhalte.js';
 import {
   esc, heute, tagPlus, tagLang, tagKurz, vorWieLange, eherFrageFuer,
-  serieBerechnen, anfangsbuchstabe, herzRegen, zeigeHinweis, vibrieren,
+  serieBerechnen, anfangsbuchstabe, zusammenSeit, herzRegen, zeigeHinweis, vibrieren,
 } from './hilfen.js';
 import { erstelleDemoDaten } from './daten-demo.js';
 import { kameraOeffnen } from './kamera.js';
@@ -297,11 +297,21 @@ function avatar(person, rolle, groesse = '') {
   return `<span class="avatar ${rolle} ${groesse}" aria-hidden="true">${esc(anfangsbuchstabe(person?.name))}</span>`;
 }
 
-function kopf(titel, ueberzeile, rechts = '') {
+function kopf(titel, ueberzeile, rechts = '', unterzeile = '') {
   return `<header class="kopf ${titel.length > 14 ? 'titel-lang' : ''}">
     <p class="ueberzeile">${esc(ueberzeile)}</p>
     <div class="kopf-zeile"><h1>${esc(titel)}</h1>${rechts}</div>
+    ${unterzeile}
   </header>`;
+}
+
+// Dezente Zeile unter „Heute“: seit wann ihr zusammen seid (an besonderen Tagen rosa).
+function zusammenZeile(d) {
+  const info = zusammenSeit(d.zusammenSeit);
+  if (!info) {
+    return `<button class="zusammen-zeile leer" data-aktion="einstellungen">${S.herz(14, false)} Seit wann seid ihr zusammen? Eintragen</button>`;
+  }
+  return `<p class="zusammen-zeile ${info.besonders ? 'besonders' : ''}">${S.herz(14)}<span>${esc(info.text)}</span></p>`;
 }
 
 function blase(person, rolle, text) {
@@ -472,7 +482,7 @@ function ansichtHeute(d) {
   }
 
   return `
-    ${kopf('Heute', tagLang(heute()), `<button class="rund-knopf" data-aktion="einstellungen" aria-label="Einstellungen">${S.zahnrad()}</button>`)}
+    ${kopf('Heute', tagLang(heute()), `<button class="rund-knopf" data-aktion="einstellungen" aria-label="Einstellungen">${S.zahnrad()}</button>`, zusammenZeile(d))}
     ${pushKarte}
     ${partnerKarte}
     <div class="abschnitt-kopf"><h2>Wie fühlst du dich?</h2><span class="klein leise">Tippen zum Ändern</span></div>
@@ -742,6 +752,11 @@ function ansichtEinstellungen(d) {
         <input id="name-aendern" name="name" type="text" maxlength="30" required value="${esc(d.ich.name)}">
         <button class="knopf zweit" ${aus()}>Speichern</button>
       </form>
+      <form class="karte formular" data-form="zusammen">
+        <label for="zusammen-seit">Zusammen seit</label>
+        <input id="zusammen-seit" name="datum" type="date" max="${heute()}" value="${esc(d.zusammenSeit ?? '')}">
+        <button class="knopf zweit" ${aus()}>Speichern</button>
+      </form>
       ${pushEinstellung(d)}
       ${quelle.demo
         ? `<div class="karte"><p class="klein leise">Im Demo-Modus spielt eine ausgedachte Partnerin mit. Trag in <code>js/konfig.js</code> deine Supabase-Daten ein, dann wird es echt.</p>
@@ -940,6 +955,14 @@ const formulare = {
     merker.delete(`frage-${tag}`);
     await neuLaden();
     zeigeHinweis(tag === heute() ? 'Frage ist gestellt' : 'Frage für morgen ist eingeplant');
+  },
+
+  async zusammen({ datum }) {
+    if (datum && datum > heute()) throw new Error('Das Datum liegt in der Zukunft.');
+    await quelle.zusammenSeitSetzen(datum);
+    z.einstellungen = false;
+    await neuLaden();
+    zeigeHinweis('Gespeichert 💞');
   },
 
   async name({ name }) {

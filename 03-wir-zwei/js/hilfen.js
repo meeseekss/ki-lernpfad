@@ -82,6 +82,51 @@ export function serieBerechnen(eherAntworten, ichId, partnerId) {
   return serie;
 }
 
+// ── Seit wann zusammen? Liefert die Zeile unter „Heute“ und erkennt besondere Tage.
+// zusammenSeit('2026-06-14', '2026-11-03') → { text: 'Seit 4 Monaten und 20 Tagen zusammen', besonders: false }
+const tageImMonat = (jahr, monat) => new Date(Date.UTC(jahr, monat, 0)).getUTCDate(); // monat 1–12
+
+export function zusammenSeit(seit, tag = heute()) {
+  if (!seit || seit > tag) return null;
+  const [j1, m1, t1] = seit.split('-').map(Number);
+  const [j2, m2, t2] = tag.split('-').map(Number);
+  const tageGesamt = Math.round((alsUtc(tag) - alsUtc(seit)) / 86400000);
+
+  // Ganze Monate: so viele, wie man auf das Startdatum addieren kann, ohne über heute hinauszukommen
+  // (ein 31. wird in kürzeren Monaten zum letzten Tag). Der Rest sind Tage.
+  const plusMonate = (n) => {
+    const summe = m1 - 1 + n;
+    const j = j1 + Math.floor(summe / 12);
+    const m = (summe % 12) + 1;
+    return Date.UTC(j, m - 1, Math.min(t1, tageImMonat(j, m)));
+  };
+  let monate = (j2 - j1) * 12 + (m2 - m1);
+  if (plusMonate(monate) > alsUtc(tag)) monate -= 1;
+  const tage = Math.round((alsUtc(tag) - plusMonate(monate)) / 86400000);
+  const jahre = Math.floor(monate / 12);
+  monate %= 12;
+
+  // Besondere Tage: Jahrestag, Monatstag (am 31. zählt bei kurzen Monaten der letzte Tag), runde Zahlen
+  const monatstag = t2 === Math.min(t1, tageImMonat(j2, m2)) && tageGesamt > 0;
+  const ganzeMonate = (j2 - j1) * 12 + (m2 - m1);
+  if (tageGesamt === 0) return { text: 'Heute ist euer erster gemeinsamer Tag 💞', besonders: true };
+  if (monatstag && ganzeMonate % 12 === 0) {
+    const n = ganzeMonate / 12;
+    return { text: `Heute vor genau ${n} ${n === 1 ? 'Jahr' : 'Jahren'} 💞`, besonders: true };
+  }
+  if (monatstag) {
+    return { text: `Heute vor genau ${ganzeMonate} ${ganzeMonate === 1 ? 'Monat' : 'Monaten'} 💞`, besonders: true };
+  }
+  if (tageGesamt % 100 === 0) return { text: `Heute seid ihr ${tageGesamt} Tage zusammen 💞`, besonders: true };
+
+  const teile = [];
+  if (jahre) teile.push(`${jahre} ${jahre === 1 ? 'Jahr' : 'Jahren'}`);
+  if (monate) teile.push(`${monate} ${monate === 1 ? 'Monat' : 'Monaten'}`);
+  if (tage) teile.push(`${tage} ${tage === 1 ? 'Tag' : 'Tagen'}`);
+  const liste = teile.length > 1 ? `${teile.slice(0, -1).join(', ')} und ${teile.at(-1)}` : teile[0];
+  return { text: `Seit ${liste} zusammen`, besonders: false };
+}
+
 export function anfangsbuchstabe(name) {
   const b = String(name ?? '').trim().match(/\p{L}/u);
   return b ? b[0].toUpperCase() : '?';

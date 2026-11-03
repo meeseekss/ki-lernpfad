@@ -453,3 +453,14 @@ body.kamera-offen { overflow: hidden; }
 .kamera-auswahl { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 360px; }
 .kamera-auswahl .knopf { max-width: none; cursor: pointer; }
 .kamera [hidden] { display: none !important; }
+
+/* ── Seit wann zusammen (dezent unter „Heute“) */
+.zusammen-zeile {
+  margin: 4px 0 0; padding: 0; border: none; background: none;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; color: var(--leise); text-align: left;
+}
+.zusammen-zeile svg { color: var(--akzent); flex-shrink: 0; }
+.zusammen-zeile.leer { min-height: 32px; }
+.zusammen-zeile.besonders { color: var(--akzent-text); font-weight: 600; animation: einblenden 0.5s ease; }
+input[type='date'] { width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--feld-rand); background: var(--feld); font-size: 16px; min-height: 48px; }

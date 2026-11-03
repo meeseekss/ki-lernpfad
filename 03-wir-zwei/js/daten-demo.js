@@ -71,6 +71,7 @@ function startStand() {
   eher.push({ tag: h, autor: SIE, wahl: eherFrageFuer(h)[0].length % 2 });
   return {
     angelegtAm: h,
+    zusammenSeit: tagPlus(h, -142),
     ich: { id: ICH, name: 'Du', stimmung: null, stimmungSeit: null },
     partner: {
       id: SIE, name: 'Sie', stimmung: 'arm',
@@ -147,6 +148,7 @@ export function erstelleDemoDaten() {
         ich: { ...s.ich },
         partner: { ...s.partner },
         paarCode: 'DEMO42',
+        zusammenSeit: s.zusammenSeit ?? null,
         fragen: s.fragen.filter((f) => f.autor === ICH || f.tag <= h),
         antworten: s.antworten.filter((a) => a.autor === ICH || ichHabe.has(a.frageId)),
         partnerHatBeantwortet: s.antworten.filter((a) => a.autor === SIE).map((a) => a.frageId),
@@ -167,6 +169,10 @@ export function erstelleDemoDaten() {
 
     async stimmungSetzen(schluessel) {
       aendern((s) => { s.ich.stimmung = schluessel; s.ich.stimmungSeit = new Date().toISOString(); });
+    },
+
+    async zusammenSeitSetzen(datum) {
+      aendern((s) => { s.zusammenSeit = datum || null; });
     },
 
     async nameSetzen(name) {

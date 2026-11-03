@@ -420,3 +420,13 @@ $$;
 revoke execute on function public.fotos_aufraeumen() from public, anon, authenticated;
 
 select cron.schedule('fotos-aufraeumen', '1 * * * *', 'select public.fotos_aufraeumen()');
+
+-- ───────────────────────── Seit wann zusammen ─────────────────────────
+-- Für die dezente Zeile unter „Heute“. Beide im Paar dürfen das Datum ändern (nur diese Spalte).
+alter table public.paare add column zusammen_seit date check (zusammen_seit <= public.heute() + 1);
+
+grant update (zusammen_seit) on public.paare to authenticated;
+create policy "eigenes Paar ändern" on public.paare
+  for update to authenticated using (id = public.mein_paar()) with check (id = public.mein_paar());
+
+alter publication supabase_realtime add table public.paare;
