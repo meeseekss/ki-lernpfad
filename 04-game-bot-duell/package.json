@@ -6,7 +6,8 @@
   "description": "Snake im Browser, vorbereitet für Playwright-Bots",
   "scripts": {
     "start": "node tools/server.mjs",
-    "test": "playwright test"
+    "test": "playwright test",
+    "duell": "node bots/duell.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.0"
