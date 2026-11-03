@@ -1,0 +1,14 @@
+{
+  "name": "game-bot-duell",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Snake im Browser, vorbereitet für Playwright-Bots",
+  "scripts": {
+    "start": "node tools/server.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0"
+  }
+}

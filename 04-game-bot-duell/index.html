@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Snake · Game-Bot-Duell</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Snake</h1>
+    <div class="leiste">
+      <span>Punkte: <strong data-testid="punkte">0</strong></span>
+      <span class="klein">Seed: <span data-testid="seed"></span></span>
+    </div>
+    <div class="buehne">
+      <!-- Zellen erzeugt js/app.js: data-testid="zelle-<zeile>-<spalte>", data-inhalt="kopf|schlange|futter|leer" -->
+      <div class="spielfeld" data-testid="spielfeld"></div>
+      <div class="game-over" data-testid="game-over" hidden>Game Over</div>
+    </div>
+    <p class="hinweis" data-testid="hinweis">Pfeiltaste drücken zum Starten</p>
+    <button type="button" data-testid="neustart">Neues Spiel</button>
+  </main>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

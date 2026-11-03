@@ -1,0 +1,91 @@
+:root {
+  --hintergrund: #f4f1ea;
+  --text: #222;
+  --feld: #e3ddd0;
+  --zelle: #ece7dc;
+  --schlange: #3f8f4f;
+  --kopf: #1f5e2c;
+  --futter: #d9483b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hintergrund: #16181c;
+    --text: #eee;
+    --feld: #23262c;
+    --zelle: #2c3038;
+    --schlange: #5cbf6e;
+    --kopf: #a6e3b0;
+    --futter: #ff6b5c;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--hintergrund);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  width: min(92vw, 480px);
+  text-align: center;
+}
+
+h1 { margin: 0 0 12px; }
+
+.leiste {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.klein { opacity: 0.6; font-size: 0.85em; }
+
+.buehne { position: relative; }
+
+.spielfeld {
+  display: grid;
+  grid-template-columns: repeat(var(--spalten), 1fr);
+  gap: 2px;
+  padding: 2px;
+  background: var(--feld);
+  border-radius: 8px;
+  aspect-ratio: 1;
+}
+
+.spielfeld > div { background: var(--zelle); border-radius: 3px; }
+.spielfeld > [data-inhalt="schlange"] { background: var(--schlange); }
+.spielfeld > [data-inhalt="kopf"] { background: var(--kopf); }
+.spielfeld > [data-inhalt="futter"] { background: var(--futter); border-radius: 50%; }
+
+.game-over {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 2.5em;
+  font-weight: 700;
+  background: rgb(0 0 0 / 0.45);
+  color: #fff;
+  border-radius: 8px;
+}
+
+.game-over[hidden] { display: none; }
+
+.hinweis { opacity: 0.7; }
+
+button {
+  font: inherit;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--schlange);
+  color: #fff;
+  cursor: pointer;
+}
