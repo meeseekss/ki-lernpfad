@@ -22,11 +22,11 @@ SICHTBAR=1 SEED=7 npm run duell   # zuschauen: eine Runde, drei Fenster nebenein
 | --- | --- |
 | **Zufall** | Wählt zufällig eine Richtung, die nicht sofort in Wand oder Körper führt. Würfelt mit dem Seed der Runde, damit Läufe wiederholbar sind. |
 | **Strategie alt** | Nimmt den kürzesten Weg zum Futter (Breitensuche, läuft also um den Körper herum). Vor jedem Zug zählt eine Flutfüllung, wie viele Felder danach noch erreichbar sind. Ist das weniger als die Schlangenlänge, scheidet der Zug aus. Bleibt keiner übrig, geht er dorthin, wo am meisten Platz ist. Ignoriert `data-index` und behandelt den ganzen Körper inklusive Schwanz als Hindernis. |
-| **Strategie** | Wie „Strategie alt“, kennt aber über `data-index` die Reihenfolge des Körpers. Eine einzige Breitensuche liefert Platz und Weg zum Futter, und Körperteile zählen darin als frei, sobald sie weitergerückt sind, bevor der Kopf ankommt (Teil an Stelle j ist nach `länge − j` Schritten weg). Er darf auch direkt aufs Schwanzfeld ziehen, wenn er dort nicht frisst. |
+| **Strategie** | Wie „Strategie alt“, kennt aber über `data-index` die Reihenfolge des Körpers. Eine einzige Breitensuche liefert Platz und Weg zum Futter, und Körperteile zählen darin als frei, sobald sie weitergerückt sind, bevor der Kopf ankommt (Teil an Stelle j ist nach `länge − j` Schritten weg). Er darf auch direkt aufs Schwanzfeld ziehen, wenn er dort nicht frisst. Hat er länger als zwei Körperlängen (mindestens 225 Schritte) nichts gefressen, kreist er ums Futter und baut dabei selbst die Wände, die es einschließen. Dann läuft er eine Körperlänge lang möglichst weit vom Futter weg (nur über Züge mit genug Platz), damit sich sein Körper löst, und versucht es danach neu. |
 
 Alle lesen das Brett nur über die `data-*`-Attribute der Seite und drücken Pfeiltasten. Eine Umkehr bieten die Bots nie an, weil das Spiel sie ignoriert und geradeaus läuft.
 
-Ein Lauf (Stand jetzt): Zufall Ø 3,6, Strategie alt Ø 55,6, Strategie Ø 75,0 Punkte. „Strategie“ stirbt deutlich seltener und erreicht in 8 von 20 Runden das Schrittlimit: Dann läuft er sicher seinem Schwanz hinterher, findet aber keinen Weg zum Futter, der genug Platz lässt. Dauer etwa 70 Sekunden.
+Ein Lauf (Stand jetzt): Zufall Ø 3,6, Strategie alt Ø 55,6, Strategie Ø 78,7 Punkte. „Strategie“ erreicht in 6 von 20 Runden das Schrittlimit, frisst dort aber bis kurz vorher weiter, mit 90 bis 103 Punkten. Dauer etwa 70 Sekunden.
 
 ### Zuschauen
 
@@ -61,7 +61,7 @@ js/spiel.js           Regeln ohne DOM: Zufall mit Seed (Mulberry32), Schritt, Ko
 js/app.js             Zellen zeichnen, Tasten, Takt, URL-Parameter
 tests/spiel.spec.ts   Start-Test und Bot-Modus/Seed-Test
 bots/brett.mjs        Brett aus den data-Attributen lesen (inkl. Körperreihenfolge), sichere Züge
-bots/bots.mjs         Zufalls-Bot, Strategie alt (Breitensuche, Flutfüllung), Strategie (Breitensuche mit frei werdendem Schwanz)
+bots/bots.mjs         Zufalls-Bot, Strategie alt (Breitensuche, Flutfüllung), Strategie (Breitensuche mit frei werdendem Schwanz, Weglaufen gegen Kreisen)
 bots/duell.mjs        Server starten, beide Bots spielen lassen, Tabelle ausgeben, Zuschau-Modus
 tools/server.mjs      Mini-Webserver ohne Abhängigkeiten (Port 4174)
 ```

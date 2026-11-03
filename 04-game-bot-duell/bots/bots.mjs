@@ -8,9 +8,32 @@ export function zufallsZug(brett, zufall) {
   return zuege[Math.floor(zufall() * zuege.length)];
 }
 
-// Bot 3 („Strategie“): wie Bot 2, kennt aber über data-index die Reihenfolge des Körpers.
+// Bot 3 („Strategie“) für eine ganze Runde: merkt sich, seit wie vielen Zügen er nichts gefressen hat.
+// Länger als zwei Körperlängen (mindestens so viele Schritte, wie das Feld Zellen hat) ohne Futter heißt:
+// Er kreist ums Futter und baut dabei selbst die Wände, die es einschließen.
+// Dann läuft er eine Körperlänge lang möglichst weit weg, damit sich sein Körper löst.
+export function strategieMitSchwanz() {
+  let punkte = -1;
+  let seitFutter = 0;
+  let wegNoch = 0;
+  return (brett, beobachten) => {
+    seitFutter = brett.punkte === punkte ? seitFutter + 1 : 0;
+    punkte = brett.punkte;
+    const geduld = Math.max(2 * brett.koerper.length, brett.zeilen * brett.spalten);
+    if (wegNoch === 0 && seitFutter > geduld) {
+      wegNoch = brett.koerper.length;
+      seitFutter = 0;
+    }
+    const weg = wegNoch > 0;
+    if (weg) wegNoch--;
+    return strategieMitSchwanzZug(brett, beobachten, weg);
+  };
+}
+
+// Ein Zug von Bot 3: wie Bot 2, kennt aber über data-index die Reihenfolge des Körpers.
 // Schwanzfelder zählen als frei, sobald der Schwanz sie verlassen hat, bevor der Kopf ankommt.
-export function strategieMitSchwanzZug(brett, beobachten) {
+// weg: unter den Zügen mit genug Platz den mit dem größten statt dem kleinsten Abstand zum Futter wählen.
+export function strategieMitSchwanzZug(brett, beobachten, weg = false) {
   const { koerper } = brett;
   const schwanz = koerper[koerper.length - 1];
   // Aufs Schwanzfeld darf er, wenn er dort nicht frisst: Dann rückt der Schwanz im selben Schritt weiter
@@ -31,18 +54,20 @@ export function strategieMitSchwanzZug(brett, beobachten) {
     const frisst = brett.futter !== null && gleich(kopf, brett.futter);
     const neuerKoerper = [kopf, ...(frisst ? koerper : koerper.slice(0, -1))];
     const wege = wegeMitSchwanz(brett, neuerKoerper);
+    const erreichbar = new Set(wege.keys());
     return {
       richtung,
       laenge: neuerKoerper.length,
-      erreichbar: new Set(wege.keys()),
-      platz: wege.size,
+      erreichbar,
+      platz: erreichbar.size,
       abstand: brett.futter ? (wege.get(schluessel(brett.futter)) ?? Infinity) : Infinity,
     };
   });
 
   const genug = bewertet.filter((zug) => zug.platz >= zug.laenge);
+  const richtungZumFutter = weg ? -1 : 1;
   const auswahl = genug.length > 0
-    ? genug.sort((a, b) => a.abstand - b.abstand || b.platz - a.platz)
+    ? genug.sort((a, b) => richtungZumFutter * (a.abstand - b.abstand) || b.platz - a.platz)
     : bewertet.sort((a, b) => b.platz - a.platz);
   beobachten?.({ erreichbar: auswahl[0].erreichbar, genug: genug.length > 0 });
   return auswahl[0].richtung;

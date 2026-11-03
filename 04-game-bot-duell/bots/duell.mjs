@@ -6,7 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { fileURLToPath } from 'node:url';
 import { zufallMitSeed } from '../js/spiel.js';
 import { brettLesen, RICHTUNGEN } from './brett.mjs';
-import { strategieMitSchwanzZug, strategieZug, zufallsZug } from './bots.mjs';
+import { strategieMitSchwanz, strategieZug, zufallsZug } from './bots.mjs';
 
 const ADRESSE = 'http://localhost:4174';
 const MAX_SCHRITTE = 2000;
@@ -27,7 +27,7 @@ const SEEDS = seedsBestimmen();
 const BOTS = [
   { name: 'Zufall', neu: (seed) => { const zufall = zufallMitSeed(seed); return (brett) => zufallsZug(brett, zufall); } },
   { name: 'Strategie alt', neu: (seed, beobachten) => (brett) => strategieZug(brett, beobachten) },
-  { name: 'Strategie', neu: (seed, beobachten) => (brett) => strategieMitSchwanzZug(brett, beobachten) },
+  { name: 'Strategie', neu: (seed, beobachten) => { const zug = strategieMitSchwanz(); return (brett) => zug(brett, beobachten); } },
 ];
 
 // Nur im Zuschau-Modus: Felder, die die Strategie-Bots als erreichbar zählen (blau = genug Platz, orange = zu eng)
