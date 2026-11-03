@@ -173,8 +173,15 @@ function render() {
   const aktiv = document.activeElement;
   const fokusId = aktiv && wurzel.contains(aktiv) ? aktiv.id : null;
   const auswahl = fokusId && 'selectionStart' in aktiv ? [aktiv.selectionStart, aktiv.selectionEnd] : null;
+  // Scrollstand im Einstellungsblatt merken, damit es beim Neuzeichnen nicht nach oben springt
+  const blattScroll = document.querySelector('.blatt-unten')?.scrollTop ?? 0;
 
   wurzel.innerHTML = ansicht();
+
+  document.body.classList.toggle('blatt-offen', z.einstellungen);
+  const blatt = document.querySelector('.blatt-unten');
+  if (blatt) blatt.scrollTop = blattScroll;
+  z.blattFrisch = false; // Hochfahr-Animation nur beim Öffnen, nicht bei jedem Neuzeichnen
 
   for (const [id, wert] of merker) {
     const feld = document.getElementById(id);
@@ -743,18 +750,18 @@ function ansichtEher(d) {
 // ───────────────────────── Einstellungen ─────────────────────────
 
 function ansichtEinstellungen(d) {
-  return `<div class="schleier" data-aktion="schliessen-hintergrund">
+  return `<div class="schleier ${z.blattFrisch ? 'frisch' : ''}" data-aktion="schliessen-hintergrund">
     <section class="blatt-unten" role="dialog" aria-modal="true" aria-labelledby="einstellungen-titel">
       <div class="griff" aria-hidden="true"></div>
       <div class="kopf-zeile"><h2 id="einstellungen-titel">Einstellungen</h2><button class="knopf text" data-aktion="schliessen">Fertig</button></div>
       <form class="karte formular" data-form="name">
         <label for="name-aendern">Dein Name</label>
-        <input id="name-aendern" name="name" type="text" maxlength="30" required value="${esc(d.ich.name)}">
+        <input id="name-aendern" name="name" type="text" maxlength="30" required data-merken value="${esc(d.ich.name)}">
         <button class="knopf zweit" ${aus()}>Speichern</button>
       </form>
       <form class="karte formular" data-form="zusammen">
         <label for="zusammen-seit">Zusammen seit</label>
-        <input id="zusammen-seit" name="datum" type="date" max="${heute()}" value="${esc(d.zusammenSeit ?? '')}">
+        <input id="zusammen-seit" name="datum" type="date" data-merken max="${heute()}" value="${esc(d.zusammenSeit ?? '')}">
         <button class="knopf zweit" ${aus()}>Speichern</button>
       </form>
       ${pushEinstellung(d)}
@@ -781,6 +788,13 @@ function pushEinstellung(d) {
     <p class="klein leise">${texte[0]}</p>
     ${texte[1]}
   </div>`;
+}
+
+// Blatt schließen und dort angefangene Eingaben vergessen
+function blattZu() {
+  z.einstellungen = false;
+  merker.delete('name-aendern');
+  merker.delete('zusammen-seit');
 }
 
 // ───────────────────────── Aktionen ─────────────────────────
@@ -872,9 +886,9 @@ const aktionen = {
     lokalSchreiben('wir-zwei-push-karte', 'weg');
   },
 
-  einstellungen() { z.einstellungen = true; },
-  schliessen() { z.einstellungen = false; },
-  'schliessen-hintergrund'() { z.einstellungen = false; },
+  einstellungen() { z.einstellungen = true; z.blattFrisch = true; },
+  schliessen() { blattZu(); },
+  'schliessen-hintergrund'() { blattZu(); },
 
   async 'demo-zuruecksetzen'() {
     quelle.zuruecksetzen();
@@ -960,7 +974,7 @@ const formulare = {
   async zusammen({ datum }) {
     if (datum && datum > heute()) throw new Error('Das Datum liegt in der Zukunft.');
     await quelle.zusammenSeitSetzen(datum);
-    z.einstellungen = false;
+    blattZu();
     await neuLaden();
     zeigeHinweis('Gespeichert 💞');
   },
@@ -968,7 +982,7 @@ const formulare = {
   async name({ name }) {
     if (!name.trim()) throw new Error('Bitte gib einen Namen ein.');
     await quelle.nameSetzen(name.trim());
-    z.einstellungen = false;
+    blattZu();
     await neuLaden();
   },
 };
@@ -1019,7 +1033,7 @@ document.addEventListener('input', (ev) => {
 });
 
 document.addEventListener('keydown', (ev) => {
-  if (ev.key === 'Escape' && z.einstellungen) { z.einstellungen = false; render(); }
+  if (ev.key === 'Escape' && z.einstellungen) { blattZu(); render(); }
 });
 
 // ── Navigation über die Adresse (#heute, #fragen, #eher), damit „Zurück“ funktioniert.
