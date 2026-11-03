@@ -1,6 +1,6 @@
 // Echte Daten über Supabase. Gleiche Schnittstelle wie daten-demo.js.
 
-import { heute, tagPlus } from './hilfen.js';
+import { heute, tagPlus, modulLaden } from './hilfen.js';
 
 // Feste Version, im eigenen Repo statt vom CDN: So kann kein fremder Server Code in die App schieben.
 const SUPABASE_MODUL = './vendor/supabase-2.45.4.js';
@@ -27,7 +27,8 @@ function uebersetzeFehler(text = '') {
 }
 
 export async function erstelleSupabaseDaten(url, schluessel) {
-  const { createClient } = await import(SUPABASE_MODUL);
+  // import() muss hier stehen, damit der Pfad relativ zu dieser Datei aufgelöst wird.
+  const { createClient } = await modulLaden((u) => import(u), new URL(SUPABASE_MODUL, import.meta.url).href);
   const sb = createClient(url, schluessel, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
   });

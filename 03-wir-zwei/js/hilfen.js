@@ -132,6 +132,18 @@ export function anfangsbuchstabe(name) {
   return b ? b[0].toUpperCase() : '?';
 }
 
+// ── Module nachladen mit einem zweiten Versuch.
+// Scheitert ein Laden (z. B. Funkloch), merkt sich der Browser das für diese Seite. Der zweite
+// Versuch hängt deshalb ?versuch=… an die Adresse, damit es für den Browser eine neue Datei ist.
+export async function modulLaden(laden, url) {
+  try {
+    return await laden(url);
+  } catch {
+    await new Promise((r) => setTimeout(r, 1200));
+    return laden(`${url}?versuch=${Date.now()}`);
+  }
+}
+
 // ── Effekte
 const wenigBewegung = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 

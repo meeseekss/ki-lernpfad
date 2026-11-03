@@ -2,7 +2,7 @@
 // Strategie „erst Netz, dann Zwischenspeicher“: Neue Versionen kommen sofort an,
 // offline wird die zuletzt geladene Version gezeigt.
 
-const SPEICHER = 'wir-zwei-v5';
+const SPEICHER = 'wir-zwei-v6';
 const GRUNDGERUEST = [
   './',
   './index.html',
@@ -21,7 +21,13 @@ const GRUNDGERUEST = [
 ];
 
 self.addEventListener('install', (ev) => {
-  ev.waitUntil(caches.open(SPEICHER).then((c) => c.addAll(GRUNDGERUEST)).then(() => self.skipWaiting()));
+  // cache: 'reload' holt jede Datei frisch vom Server, damit im Speicher garantiert eine
+  // zusammenpassende Version liegt (keine Mischung aus alten und neuen Dateien).
+  ev.waitUntil(
+    caches.open(SPEICHER)
+      .then((c) => c.addAll(GRUNDGERUEST.map((url) => new Request(url, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener('activate', (ev) => {
@@ -72,10 +78,20 @@ self.addEventListener('fetch', (ev) => {
     // (sonst liefert der Browser bis zu 10 Minuten lang die alte Datei von GitHub Pages).
     fetch(anfrage.url, { cache: 'no-cache', credentials: 'same-origin' })
       .then((antwort) => {
-        const kopie = antwort.clone();
-        caches.open(SPEICHER).then((c) => c.put(anfrage, kopie));
+        // Nur einwandfreie Antworten merken – keine Fehlerseiten in den Speicher legen.
+        if (antwort.ok) {
+          const kopie = antwort.clone();
+          caches.open(SPEICHER).then((c) => c.put(anfrage, kopie));
+        }
         return antwort;
       })
-      .catch(() => caches.match(anfrage).then((treffer) => treffer ?? caches.match('./index.html'))),
+      .catch(async () => {
+        const treffer = await caches.match(anfrage);
+        if (treffer) return treffer;
+        // Die Startseite als Ersatz nur beim Öffnen einer Seite, nie für eine JavaScript- oder
+        // CSS-Datei (sonst bekommt der Browser HTML statt Code: „Importing a module script failed“).
+        if (anfrage.mode === 'navigate') return (await caches.match('./index.html')) ?? Response.error();
+        return Response.error();
+      }),
   );
 });

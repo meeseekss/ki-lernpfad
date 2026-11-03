@@ -4,7 +4,7 @@ import { konfig } from './konfig.js';
 import { STIMMUNGEN, stimmung, FRAGEN_IDEEN } from './inhalte.js';
 import {
   esc, heute, tagPlus, tagLang, tagKurz, vorWieLange, eherFrageFuer,
-  serieBerechnen, anfangsbuchstabe, zusammenSeit, herzRegen, zeigeHinweis, vibrieren,
+  serieBerechnen, anfangsbuchstabe, zusammenSeit, modulLaden, herzRegen, zeigeHinweis, vibrieren,
 } from './hilfen.js';
 import { erstelleDemoDaten } from './daten-demo.js';
 import { kameraOeffnen } from './kamera.js';
@@ -70,7 +70,7 @@ async function start() {
     // „?demo“ in der Adresse erzwingt den Demo-Modus (für Tests und zum Herzeigen).
     const demoErzwungen = new URLSearchParams(location.search).has('demo');
     if (konfig.supabaseUrl && konfig.supabaseKey && !demoErzwungen) {
-      const { erstelleSupabaseDaten } = await import('./daten-supabase.js');
+      const { erstelleSupabaseDaten } = await modulLaden((u) => import(u), new URL('./daten-supabase.js', import.meta.url).href);
       quelle = await erstelleSupabaseDaten(konfig.supabaseUrl, konfig.supabaseKey);
     } else {
       quelle = erstelleDemoDaten();
@@ -81,6 +81,15 @@ async function start() {
     z.fehler = fehler?.message ?? String(fehler);
     render();
   }
+}
+
+// Verständlicher Text für den Fehlerbildschirm
+function fehlerErklaerung() {
+  if (!navigator.onLine) return 'Du bist gerade offline. Sobald du wieder Netz hast, tippe auf „Neu laden“.';
+  if (/module|import|script|fetch/i.test(z.fehler)) {
+    return 'Ein Teil der App konnte nicht geladen werden – meist wegen schlechtem Empfang. Tippe auf „Neu laden“.';
+  }
+  return 'Die App konnte nicht starten. Tippe auf „Neu laden“. Klappt es dann immer noch nicht, schick Yannic ein Bild von dieser Seite.';
 }
 
 async function statusPruefen() {
@@ -219,9 +228,9 @@ function ansichtFehler() {
   return `<main class="einstieg">
     <div class="logo">${S.herz(40)}</div>
     <h1>Hoppla</h1>
-    <p class="leise">Die App konnte nicht starten. Bist du online? Stimmen die Zugangsdaten in <code>js/konfig.js</code>?</p>
-    <div class="karte"><p class="klein leise">${esc(z.fehler)}</p></div>
-    <button class="knopf haupt" data-aktion="neu-starten">Noch mal versuchen</button>
+    <p class="leise">${esc(fehlerErklaerung())}</p>
+    <div class="karte"><p class="klein leise">Technisch: ${esc(z.fehler)}</p></div>
+    <button class="knopf haupt" data-aktion="neu-starten">Neu laden</button>
   </main>`;
 }
 
@@ -802,7 +811,8 @@ function blattZu() {
 // ───────────────────────── Aktionen ─────────────────────────
 
 const aktionen = {
-  async 'neu-starten'() { z.phase = 'laden'; render(); await start(); },
+  // Komplett neu laden: Nur so vergisst Safari fehlgeschlagene Ladeversuche.
+  'neu-starten'() { location.reload(); },
 
   async stimmung(wert) {
     z.daten.ich.stimmung = wert; // sofort anzeigen, dann speichern
