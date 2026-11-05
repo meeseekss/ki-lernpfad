@@ -206,7 +206,7 @@ export function erstelleDemoDaten() {
 
     async gesteSenden(art) {
       // In der Demo schickt sie die Umarmung zurück, damit man die Animation sieht.
-      if (art === 'umarmung') setTimeout(() => beiGeste('umarmung'), 3500);
+      if (art !== 'anruf') setTimeout(() => beiGeste(art), 3500);
     },
 
     abonnieren(aenderung, geste) {

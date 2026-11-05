@@ -20,7 +20,7 @@ create table public.profile (
   id            uuid primary key references auth.users on delete cascade,
   paar_id       uuid references public.paare on delete set null,
   name          text not null check (char_length(name) between 1 and 30),
-  stimmung      text check (stimmung in ('arm', 'gut', 'platt', 'down', 'gestresst', 'unproduktiv', 'abgefuckt', 'stimme')),
+  stimmung      text check (stimmung in ('arm', 'gut', 'platt', 'down', 'gestresst', 'unproduktiv', 'abgefuckt', 'stimme', 'krank', 'neutral')),
   stimmung_seit timestamptz
 );
 
@@ -56,7 +56,7 @@ create table public.gesten (
   id          bigint generated always as identity primary key,
   paar_id     uuid not null references public.paare on delete cascade,
   von         uuid not null references public.profile on delete cascade,
-  art         text not null check (art in ('umarmung', 'anruf')),
+  art         text not null check (art in ('umarmung', 'anruf', 'genesung')),
   erstellt_am timestamptz not null default now()
 );
 
@@ -235,7 +235,7 @@ create policy "eigene Eher-Antwort anlegen" on public.eher_antworten
   for insert to authenticated
   with check (autor = auth.uid() and paar_id = public.mein_paar() and tag = public.heute());
 
--- Gesten (Umarmung, „ich ruf dich an“): im Paar lesen und senden.
+-- Gesten (Umarmung, „ich ruf dich an“, Genesungsumarmung): im Paar lesen und senden.
 create policy "Gesten lesen" on public.gesten
   for select to authenticated using (paar_id = public.mein_paar());
 create policy "Geste senden" on public.gesten

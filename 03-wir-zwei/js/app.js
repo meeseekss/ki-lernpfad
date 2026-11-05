@@ -171,7 +171,7 @@ function gesteEmpfangen(art) {
     vibrieren([20, 60, 20]);
   } else {
     herzRegen();
-    zeigeHinweis(`${name} schickt dir eine Umarmung`);
+    zeigeHinweis(art === 'genesung' ? `${name} schickt dir eine Genesungsumarmung` : `${name} schickt dir eine Umarmung`);
     vibrieren([15, 40, 15]);
   }
 }
@@ -424,11 +424,12 @@ function pflanze(serie) {
 function ansichtHeute(d) {
   const p = d.partner;
   const ps = stimmung(p.stimmung);
-  const geste = p.stimmung === 'stimme' ? 'anruf' : 'umarmung';
+  const geste = { stimme: 'anruf', krank: 'genesung' }[p.stimmung] ?? 'umarmung';
   const gesendet = z.gesteGesendet === geste;
+  const umarmungWort = geste === 'genesung' ? 'Genesungsumarmung' : 'Umarmung';
   const gesteText = gesendet
-    ? (geste === 'anruf' ? `${S.haken(18)} ${esc(p.name)} weiß Bescheid` : `${S.herz(18)} Umarmung ist unterwegs`)
-    : (geste === 'anruf' ? '📞 Ich ruf dich gleich an' : `${S.herz(18, false)} Umarmung schicken`);
+    ? (geste === 'anruf' ? `${S.haken(18)} ${esc(p.name)} weiß Bescheid` : `${S.herz(18)} ${umarmungWort} ist unterwegs`)
+    : (geste === 'anruf' ? '📞 Ich ruf dich gleich an' : `${S.herz(18, false)} ${umarmungWort} schicken`);
 
   const partnerKarte = `<section class="karte partner-karte" aria-label="So geht es ${esc(p.name)}">
     ${HERZ_DEKO}
@@ -830,7 +831,7 @@ const aktionen = {
     quelle.benachrichtigen(wert);
     z.gesteGesendet = wert;
     vibrieren();
-    if (wert === 'umarmung') herzRegen(8);
+    if (wert !== 'anruf') herzRegen(8);
     setTimeout(() => { z.gesteGesendet = null; render(); }, 6000);
   },
 

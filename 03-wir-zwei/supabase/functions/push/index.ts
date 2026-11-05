@@ -26,11 +26,14 @@ const STIMMUNGEN: Record<string, string> = {
   unproduktiv: '🦥 Unproduktiv',
   abgefuckt: '😵‍💫 Abgefuckt',
   stimme: '📞 Würde gerne deine Stimme hören',
+  krank: '🤒 Krank',
+  neutral: '😄 Neutral',
 };
 
 function nachricht(art: string, ich: { stimmung: string | null }) {
   switch (art) {
     case 'umarmung': return { text: 'schickt dir eine Umarmung 🫂', ziel: './#heute' };
+    case 'genesung': return { text: 'schickt dir eine Genesungsumarmung 🤗', ziel: './#heute' };
     case 'anruf': return { text: 'ruft dich gleich an 📞', ziel: './#heute' };
     case 'stimmung': return ich.stimmung && STIMMUNGEN[ich.stimmung]
       ? { text: STIMMUNGEN[ich.stimmung], ziel: './#heute' } : null;

@@ -9,6 +9,8 @@ export const STIMMUNGEN = [
   { schluessel: 'unproduktiv', emoji: '🦥', text: 'Unproduktiv' },
   { schluessel: 'abgefuckt', emoji: '😵‍💫', text: 'Abgefuckt' },
   { schluessel: 'stimme', emoji: '📞', text: 'Würde gerne deine Stimme hören' },
+  { schluessel: 'krank', emoji: '🤒', text: 'Krank' },
+  { schluessel: 'neutral', emoji: '😄', text: 'Neutral' },
 ];
 
 export function stimmung(schluessel) {

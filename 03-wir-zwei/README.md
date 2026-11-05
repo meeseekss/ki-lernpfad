@@ -7,7 +7,7 @@ Eine kleine Web-App für zwei: Stimmung teilen, jeden Tag eine selbst ausgedacht
 
 | Bereich | Was passiert |
 | --- | --- |
-| **Heute** | Unter dem Titel eine dezente Zeile „Seit … zusammen“ (Datum in den Einstellungen; an Jahres-/Monatstagen und jedem 100. Tag wird sie rosa, z. B. „Heute vor genau 1 Jahr 💞“). Stimmung des Schatzes oben, darunter die eigene (8 Stimmungen). Je nach Stimmung gibt es den Knopf „Umarmung schicken“ oder „Ich ruf dich gleich an“. Beim anderen fliegen Herzen über den Bildschirm. Die Pflanze wächst mit jedem Tag, an dem ihr beide die Eher-Frage beantwortet habt. |
+| **Heute** | Unter dem Titel eine dezente Zeile „Seit … zusammen“ (Datum in den Einstellungen; an Jahres-/Monatstagen und jedem 100. Tag wird sie rosa, z. B. „Heute vor genau 1 Jahr 💞“). Stimmung des Schatzes oben, darunter die eigene (10 Stimmungen). Je nach Stimmung gibt es den Knopf „Umarmung schicken“, „Ich ruf dich gleich an“ oder bei „Krank“ „Genesungsumarmung schicken“. Beim anderen fliegen Herzen über den Bildschirm. Die Pflanze wächst mit jedem Tag, an dem ihr beide die Eher-Frage beantwortet habt. |
 | **Fragen** | Jeder denkt sich pro Tag eine Frage aus, beide beantworten beide. Die Antwort des anderen bleibt versteckt, bis man selbst geantwortet hat. Antworten sind danach fest. Eine Frage für morgen kann man schon einplanen. Alte Fragen landen im Archiv-Tab. |
 | **Eher** | Jeden Tag um Mitternacht eine neue Frage aus `js/inhalte.js` (149 Stück). Ein Tipp, fest gespeichert, dann „Match!“ oder „Uneinig“. |
 | **Foto** | Der Kamera-Knopf in der Mitte der Leiste: einmal am Tag ein Foto im BeReal-Stil. Erst die Rückkamera, dann automatisch ein Selfie mit Countdown. Das Foto des anderen ist sofort sichtbar, Antippen des kleinen Bildes tauscht groß und klein. Um Mitternacht verschwindet alles, auch vom Server. |
@@ -57,7 +57,7 @@ npx playwright install chromium
 npm test
 ```
 
-Zehn Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmung, Antwort deckt auf und ist fest, eigene Frage stellen, Eher-Wahl ist fest, Archiv, Foto aufnehmen/posten/tauschen, Kamera abbrechen, Zeile „Seit … zusammen“, Sicherheitsregeln (CSP). Die Kamera ist in den Tests eine Testkamera von Chromium (grünes Bild).
+Zwölf Tests im Demo-Modus (iPhone-Größe): Stimmung bleibt gespeichert, Umarmung, Antwort deckt auf und ist fest, eigene Frage stellen, Eher-Wahl ist fest, Archiv, Foto aufnehmen/posten/tauschen, Kamera abbrechen, Zeile „Seit … zusammen“, Sicherheitsregeln (CSP), neue Stimmungen Krank und Neutral, Genesungsumarmung. Die Kamera ist in den Tests eine Testkamera von Chromium (grünes Bild).
 
 ## Echt machen (einmalig)
 

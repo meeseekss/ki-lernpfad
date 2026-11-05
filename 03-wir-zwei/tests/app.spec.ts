@@ -123,3 +123,24 @@ test('Sicherheitsregeln (CSP): Supabase kommt aus dem eigenen Repo, fremde Skrip
   });
   expect(verstoesse).toEqual(['script-src-elem']);
 });
+
+test('Neue Stimmungen Krank und Neutral bleiben nach dem Neuladen markiert', async ({ page }) => {
+  for (const name of ['Krank', 'Neutral']) {
+    await page.getByRole('button', { name }).click();
+    await expect(page.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'true');
+    await page.reload();
+    await expect(page.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'true');
+  }
+});
+
+test('Ist der Partner krank, gibt es die Genesungsumarmung statt der normalen', async ({ page }) => {
+  await page.evaluate(() => {
+    const stand = JSON.parse(localStorage.getItem('wir-zwei-demo')!);
+    stand.partner.stimmung = 'krank';
+    localStorage.setItem('wir-zwei-demo', JSON.stringify(stand));
+  });
+  await page.reload();
+  await expect(page.getByRole('button', { name: 'Umarmung schicken', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Genesungsumarmung schicken' }).click();
+  await expect(page.getByRole('button', { name: 'Genesungsumarmung ist unterwegs' })).toBeDisabled();
+});
